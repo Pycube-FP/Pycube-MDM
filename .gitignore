@@ -1,0 +1,45 @@
+# Python virtual environment
+venv/
+env/
+ENV/
+
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# Environment variables - never commit to Git
+.env
+
+# Flask session files
+flask_session/
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Database files
+*.db
+*.sqlite3
+
+# Cache
+.pytest_cache/
+.coverage
+htmlcov/ 
