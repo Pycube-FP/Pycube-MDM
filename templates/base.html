@@ -6,13 +6,17 @@
     <title>{% block title %}Pycube MDM{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/pycube-logo.png') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
-            <a href="{{ url_for('dashboard.index') }}" class="navbar-brand">Pycube MDM</a>
+            <a href="{{ url_for('dashboard.index') }}" class="navbar-brand">
+                <img src="{{ url_for('static', filename='img/pycube-logo.png') }}" alt="Pycube Logo" height="30" style="margin-right: 10px; vertical-align: middle;">
+                Pycube MDM
+            </a>
             <ul class="navbar-nav">
                 <li><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
                 <li><a href="{{ url_for('devices.index') }}">Devices</a></li>
