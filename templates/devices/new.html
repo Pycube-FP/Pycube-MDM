@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Device - Pycube MDM{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-control {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    label {
+        display: block;
+        margin-bottom: var(--spacing-xs);
+        font-weight: 500;
+    }
+    
+    .required::after {
+        content: "*";
+        color: var(--alert-color);
+        margin-left: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>Add New Device</h1>
+        <a href="{{ url_for('devices.index') }}" class="btn btn-info">Back to Devices</a>
+    </div>
+    
+    <form action="{{ url_for('devices.create') }}" method="POST">
+        <div class="row">
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="serial_number" class="required">Serial Number</label>
+                    <input type="text" class="form-control" id="serial_number" name="serial_number" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="model" class="required">Model</label>
+                    <input type="text" class="form-control" id="model" name="model" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="manufacturer" class="required">Manufacturer</label>
+                    <input type="text" class="form-control" id="manufacturer" name="manufacturer" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="rfid_tag" class="required">EPC Code</label>
+                    <div style="display: flex; gap: var(--spacing-xs);">
+                        <input type="text" class="form-control" id="rfid_tag" name="rfid_tag" required>
+                        <button type="button" id="scanBtn" class="btn btn-primary" style="white-space: nowrap;">Scan EPC</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select class="form-control" id="status" name="status">
+                        <option value="Available">Available</option>
+                        <option value="In-Use">In-Use</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Missing">Missing</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="location_id">Location</label>
+                    <select class="form-control" id="location_id" name="location_id">
+                        <option value="">-- Select Location --</option>
+                        {% for location in locations %}
+                        <option value="{{ location.id }}">{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="assigned_to">Assigned To</label>
+                    <input type="text" class="form-control" id="assigned_to" name="assigned_to">
+                </div>
+                
+                <div class="row">
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label for="purchase_date">Purchase Date</label>
+                            <input type="date" class="form-control" id="purchase_date" name="purchase_date">
+                        </div>
+                    </div>
+                    
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label for="last_maintenance_date">Last Maintenance</label>
+                            <input type="date" class="form-control" id="last_maintenance_date" name="last_maintenance_date">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <hr style="margin: var(--spacing-lg) 0;">
+        
+        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
+            <a href="{{ url_for('devices.index') }}" class="btn btn-info">Cancel</a>
+            <button type="submit" class="btn btn-primary">Add Device</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const scanBtn = document.getElementById('scanBtn');
+        const rfidTagInput = document.getElementById('rfid_tag');
+        
+        scanBtn.addEventListener('click', function() {
+            // Simulate EPC scan - in a real app, this would connect to an RFID reader
+            const epcCode = prompt('Enter EPC Code to use:');
+            
+            if (epcCode) {
+                rfidTagInput.value = epcCode;
+            }
+        });
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block title %}Devices - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>Devices</h1>
+        <a href="{{ url_for('devices.new') }}" class="btn btn-primary">Add New Device</a>
+    </div>
+    
+    <div style="margin-bottom: var(--spacing-lg);">
+        <div style="display: flex; gap: var(--spacing-md);">
+            <a href="{{ url_for('devices.index') }}" class="btn {% if not status_filter %}btn-primary{% else %}btn-info{% endif %}">All</a>
+            <a href="{{ url_for('devices.index', status='Available') }}" class="btn {% if status_filter == 'Available' %}btn-primary{% else %}btn-success{% endif %}">Available</a>
+            <a href="{{ url_for('devices.index', status='In-Use') }}" class="btn {% if status_filter == 'In-Use' %}btn-primary{% else %}btn-info{% endif %}">In-Use</a>
+            <a href="{{ url_for('devices.index', status='Maintenance') }}" class="btn {% if status_filter == 'Maintenance' %}btn-primary{% else %}btn-warning{% endif %}">Maintenance</a>
+            <a href="{{ url_for('devices.index', status='Missing') }}" class="btn {% if status_filter == 'Missing' %}btn-primary{% else %}btn-danger{% endif %}">Missing</a>
+        </div>
+    </div>
+    
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Status</th>
+                <th>Model</th>
+                <th>Serial Number</th>
+                <th>Assigned To</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for device in devices %}
+            <tr>
+                <td>
+                    <span class="status-indicator status-{{ device.status.lower() }}"></span>
+                    {{ device.status }}
+                </td>
+                <td>{{ device.manufacturer }} {{ device.model }}</td>
+                <td>{{ device.serial_number }}</td>
+                <td>{{ device.assigned_to or 'Unassigned' }}</td>
+                <td>
+                    <a href="{{ url_for('devices.show', device_id=device.id) }}" class="btn btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">View</a>
+                    <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Edit</a>
+                    <button class="btn btn-danger delete-device" data-id="{{ device.id }}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Delete</button>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: var(--spacing-lg);">
+                    No devices found. <a href="{{ url_for('devices.new') }}">Add a new device</a>.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    <div style="display: flex; justify-content: center; margin-top: var(--spacing-lg);">
+        {% if current_page > 1 %}
+        <a href="{{ url_for('devices.index', page=current_page-1, status=status_filter) }}" class="btn btn-info" style="margin-right: var(--spacing-sm);">Previous</a>
+        {% endif %}
+        
+        <span style="line-height: 2.25; margin: 0 var(--spacing-md);">Page {{ current_page }}</span>
+        
+        {% if devices|length == 10 %}
+        <a href="{{ url_for('devices.index', page=current_page+1, status=status_filter) }}" class="btn btn-info" style="margin-left: var(--spacing-sm);">Next</a>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: relative; top: 50%; transform: translateY(-50%); margin: 0 auto; width: 400px; background-color: white; padding: var(--spacing-lg); border-radius: var(--border-radius-md); box-shadow: var(--shadow-lg);">
+        <h3>Confirm Deletion</h3>
+        <p>Are you sure you want to delete this device? This action cannot be undone.</p>
+        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+            <button id="cancelDelete" class="btn btn-info">Cancel</button>
+            <form id="deleteForm" method="POST">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        const cancelDelete = document.getElementById('cancelDelete');
+        
+        // Show modal when delete button is clicked
+        document.querySelectorAll('.delete-device').forEach(button => {
+            button.addEventListener('click', function() {
+                const deviceId = this.getAttribute('data-id');
+                deleteForm.action = `/devices/${deviceId}/delete`;
+                deleteModal.style.display = 'block';
+            });
+
+        });
+        
+        // Hide modal when cancel is clicked
+        cancelDelete.addEventListener('click', function() {
+            deleteModal.style.display = 'none';
+        });
+        
+        // Hide modal when clicking outside
+        deleteModal.addEventListener('click', function(event) {
+            if (event.target === deleteModal) {
+                deleteModal.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %} 

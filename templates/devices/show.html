@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block title %}Device Details - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>Device Details</h1>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning">Edit Device</a>
+            <a href="{{ url_for('devices.index') }}" class="btn btn-info">Back to Devices</a>
+            <button class="btn btn-danger delete-device" data-id="{{ device.id }}">Delete Device</button>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-6">
+            <div style="display: flex; align-items: center; margin-bottom: var(--spacing-md);">
+                <div class="status-indicator status-{{ device.status.lower() }}" style="width: 16px; height: 16px;"></div>
+                <span style="font-size: var(--font-size-large); font-weight: 600; margin-left: var(--spacing-sm);">
+                    {{ device.status }}
+                </span>
+            </div>
+            
+            <h3>{{ device.manufacturer }} {{ device.model }}</h3>
+            
+            <table style="width: 100%; margin-top: var(--spacing-md);">
+                <tr>
+                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Serial Number:</td>
+                    <td>{{ device.serial_number }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EPC Code:</td>
+                    <td>{{ device.rfid_tag }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Assigned To:</td>
+                    <td>{{ device.assigned_to or 'Unassigned' }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Purchase Date:</td>
+                    <td>{{ device.purchase_date or 'Unknown' }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Last Maintenance:</td>
+                    <td>{{ device.last_maintenance_date or 'No maintenance records' }}</td>
+                </tr>
+                <tr>
+                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Added On:</td>
+                    <td>{{ device.created_at.strftime('%Y-%m-%d %H:%M:%S') if device.created_at else 'Unknown' }}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div class="col-6">
+            <div class="card" style="background-color: var(--primary-50); padding: var(--spacing-md);">
+                <h3>Quick Actions</h3>
+                <div style="display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+                    <button id="scanBtn" class="btn btn-success">Re-scan RFID Tag</button>
+                    
+                    {% if device.status == 'Missing' %}
+                    <button id="markFoundBtn" class="btn btn-primary">Mark as Found</button>
+                    {% elif device.status == 'Available' %}
+                    <button id="markInUseBtn" class="btn btn-info">Mark as In-Use</button>
+                    {% elif device.status == 'In-Use' %}
+                    <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
+                    <button id="markMaintenanceBtn" class="btn btn-warning">Mark for Maintenance</button>
+                    {% elif device.status == 'Maintenance' %}
+                    <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <hr style="margin: var(--spacing-lg) 0;">
+    
+    <h2>Movement History</h2>
+    
+    {% if movements %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Direction</th>
+                <th>Location</th>
+                <th>Reader ID</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movement in movements %}
+            <tr>
+                <td>{{ movement.timestamp.strftime('%Y-%m-%d %H:%M:%S') if movement.timestamp else 'Unknown' }}</td>
+                <td>
+                    {% if movement.direction == 'IN' %}
+                    <span style="color: var(--success-color);">IN</span>
+                    {% else %}
+                    <span style="color: var(--alert-color);">OUT</span>
+                    {% endif %}
+                </td>
+                <td>{{ movement.location_name or 'Unknown' }}</td>
+                <td>{{ movement.reader_id or 'Unknown' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No movement records found for this device.</p>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: relative; top: 50%; transform: translateY(-50%); margin: 0 auto; width: 400px; background-color: white; padding: var(--spacing-lg); border-radius: var(--border-radius-md); box-shadow: var(--shadow-lg);">
+        <h3>Confirm Deletion</h3>
+        <p>Are you sure you want to delete this device? This action cannot be undone.</p>
+        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md); margin-top: var(--spacing-lg);">
+            <button id="cancelDelete" class="btn btn-info">Cancel</button>
+            <form id="deleteForm" method="POST" action="{{ url_for('devices.delete', device_id=device.id) }}">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Delete modal functionality
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        const cancelDelete = document.getElementById('cancelDelete');
+        
+        document.querySelector('.delete-device').addEventListener('click', function() {
+            deleteModal.style.display = 'block';
+        });
+        
+        cancelDelete.addEventListener('click', function() {
+            deleteModal.style.display = 'none';
+        });
+        
+        deleteModal.addEventListener('click', function(event) {
+            if (event.target === deleteModal) {
+                deleteModal.style.display = 'none';
+            }
+        });
+        
+        // Scan button
+        document.getElementById('scanBtn').addEventListener('click', function() {
+            // Simulate RFID scan - in a real app, this would connect to an RFID reader
+            const rfidTag = prompt('Enter RFID tag to scan:');
+            
+            if (rfidTag) {
+                alert(`RFID Tag scanned: ${rfidTag}`);
+                // In a real app, this would update the device's RFID tag
+            }
+        });
+        
+        // Status change buttons
+        {% if device.status == 'Missing' %}
+        document.getElementById('markFoundBtn').addEventListener('click', function() {
+            if (confirm('Mark this device as found and available?')) {
+                updateDeviceStatus('Available');
+            }
+        });
+        {% elif device.status == 'Available' %}
+        document.getElementById('markInUseBtn').addEventListener('click', function() {
+            if (confirm('Mark this device as in use?')) {
+                updateDeviceStatus('In-Use');
+            }
+        });
+        {% elif device.status == 'In-Use' %}
+        document.getElementById('markAvailableBtn').addEventListener('click', function() {
+            if (confirm('Mark this device as available?')) {
+                updateDeviceStatus('Available');
+            }
+        });
+        document.getElementById('markMaintenanceBtn').addEventListener('click', function() {
+            if (confirm('Mark this device for maintenance?')) {
+                updateDeviceStatus('Maintenance');
+            }
+        });
+        {% elif device.status == 'Maintenance' %}
+        document.getElementById('markAvailableBtn').addEventListener('click', function() {
+            if (confirm('Mark this device as available?')) {
+                updateDeviceStatus('Available');
+            }
+        });
+        {% endif %}
+        
+        function updateDeviceStatus(status) {
+            // Create form for status update and submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = "{{ url_for('devices.update', device_id=device.id) }}";
+            
+            // Copy all existing form values
+            {% for key, value in device.items() %}
+            {% if key not in ['created_at', 'updated_at'] and value is not none %}
+            const input{{ loop.index }} = document.createElement('input');
+            input{{ loop.index }}.type = 'hidden';
+            input{{ loop.index }}.name = '{{ key }}';
+            input{{ loop.index }}.value = '{{ value }}';
+            form.appendChild(input{{ loop.index }});
+            {% endif %}
+            {% endfor %}
+            
+            // Set the new status
+            const statusInput = document.createElement('input');
+            statusInput.type = 'hidden';
+            statusInput.name = 'status';
+            statusInput.value = status;
+            form.appendChild(statusInput);
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+    });
+</script>
+{% endblock %} 

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Dashboard</h1>
+    <p>Welcome to the Pycube Mobile Device Management system. Monitor and track hospital devices.</p>
+</div>
+
+<div class="row">
+    <!-- Total Devices -->
+    <div class="col-3">
+        <div class="card stats-card">
+            <span class="number">{{ stats.total_count }}</span>
+            <span class="label">Total Devices</span>
+        </div>
+    </div>
+    
+    <!-- Missing Devices -->
+    <div class="col-3">
+        <div class="card stats-card" style="background-color: rgba(220, 53, 69, 0.1);">
+            <span class="number" style="color: var(--alert-color);">{{ stats.missing_count }}</span>
+            <span class="label">Missing Devices</span>
+        </div>
+    </div>
+    
+    <!-- Available Devices -->
+    <div class="col-3">
+        <div class="card stats-card" style="background-color: rgba(25, 135, 84, 0.1);">
+            <span class="number" style="color: var(--success-color);">{{ stats.status_counts.get('Available', 0) }}</span>
+            <span class="label">Available Devices</span>
+        </div>
+    </div>
+    
+    <!-- In-Use Devices -->
+    <div class="col-3">
+        <div class="card stats-card" style="background-color: rgba(13, 110, 253, 0.1);">
+            <span class="number" style="color: var(--info-color);">{{ stats.status_counts.get('In-Use', 0) }}</span>
+            <span class="label">In-Use Devices</span>
+        </div>
+    </div>
+</div>
+
+<div class="row" style="margin-top: var(--spacing-lg);">
+    <!-- Status Distribution Chart -->
+    <div class="col-6">
+        <div class="card">
+            <h2>Device Status Distribution</h2>
+            <div class="chart-container">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Movement Chart -->
+    <div class="col-6">
+        <div class="card">
+            <h2>Device Movement History (Last 7 Days)</h2>
+            <div class="chart-container">
+                <canvas id="movementChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row" style="margin-top: var(--spacing-lg);">
+    <div class="col-12">
+        <div class="card">
+            <h2>Quick Actions</h2>
+            <div style="display: flex; gap: var(--spacing-md);">
+                <a href="{{ url_for('devices.new') }}" class="btn btn-primary">Add New Device</a>
+                <a href="{{ url_for('devices.index') }}" class="btn btn-info">View All Devices</a>
+                <button id="scanBtn" class="btn btn-success">Scan RFID Tag</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Status Chart
+        const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const statusChart = new Chart(statusCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Available', 'In-Use', 'Maintenance', 'Missing'],
+                datasets: [{
+                    data: [
+                        {{ stats.status_counts.get('Available', 0) }},
+                        {{ stats.status_counts.get('In-Use', 0) }},
+                        {{ stats.status_counts.get('Maintenance', 0) }},
+                        {{ stats.status_counts.get('Missing', 0) }}
+                    ],
+                    backgroundColor: [
+                        '#198754', // Success - Available
+                        '#0D6EFD', // Info - In-Use
+                        '#FFC107', // Warning - Maintenance
+                        '#DC3545'  // Alert - Missing
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+        
+        // Movement Chart
+        const dates = [];
+        const counts = [];
+        
+        {% for item in stats.movement_counts %}
+            dates.push('{{ item.date }}');
+            counts.push({{ item.count }});
+        {% endfor %}
+        
+        const movementCtx = document.getElementById('movementChart').getContext('2d');
+        const movementChart = new Chart(movementCtx, {
+            type: 'line',
+            data: {
+                labels: dates,
+                datasets: [{
+                    label: 'Device Movements',
+                    data: counts,
+                    backgroundColor: 'rgba(1, 4, 46, 0.2)',
+                    borderColor: '#01042E',
+                    borderWidth: 2,
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+        
+        // RFID Scan button
+        document.getElementById('scanBtn').addEventListener('click', function() {
+            // Simulate RFID scan - in a real app, this would connect to an RFID reader
+            const rfidTag = prompt('Enter RFID tag to scan:');
+            
+            if (rfidTag) {
+                // Send to server
+                fetch('/devices/scan', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ rfid_tag: rfidTag })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Redirect to device details
+                        window.location.href = `/devices/${data.device.id}`;
+                    } else {
+                        alert('Device not found for RFID tag: ' + rfidTag);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error scanning RFID tag');
+                });
+            }
+        });
+    });
+</script>
+{% endblock %} 
