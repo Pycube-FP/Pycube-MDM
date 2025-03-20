@@ -1,11 +1,13 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from services.db_service import DBService
 from models.device import Device
+from routes.auth import login_required
 from datetime import datetime
 
 devices_bp = Blueprint('devices', __name__, url_prefix='/devices')
 
 @devices_bp.route('/')
+@login_required
 def index():
     """Render the devices list page"""
     status_filter = request.args.get('status')
@@ -19,6 +21,7 @@ def index():
     return render_template('devices/index.html', devices=devices, current_page=page, status_filter=status_filter)
 
 @devices_bp.route('/new', methods=['GET'])
+@login_required
 def new():
     """Render the add device form"""
     db_service = DBService()
@@ -27,6 +30,7 @@ def new():
     return render_template('devices/new.html', locations=locations)
 
 @devices_bp.route('/', methods=['POST'])
+@login_required
 def create():
     """Create a new device"""
     try:
@@ -70,6 +74,7 @@ def create():
         return redirect(url_for('devices.new'))
 
 @devices_bp.route('/<device_id>')
+@login_required
 def show(device_id):
     """Show device details"""
     db_service = DBService()
@@ -85,6 +90,7 @@ def show(device_id):
     return render_template('devices/show.html', device=device_data, movements=movements)
 
 @devices_bp.route('/<device_id>/edit', methods=['GET'])
+@login_required
 def edit(device_id):
     """Render the edit device form"""
     db_service = DBService()
@@ -99,6 +105,7 @@ def edit(device_id):
     return render_template('devices/edit.html', device=device_data, locations=locations)
 
 @devices_bp.route('/<device_id>', methods=['POST'])
+@login_required
 def update(device_id):
     """Update a device"""
     try:
@@ -153,6 +160,7 @@ def update(device_id):
         return redirect(url_for('devices.edit', device_id=device_id))
 
 @devices_bp.route('/<device_id>/delete', methods=['POST'])
+@login_required
 def delete(device_id):
     """Delete a device"""
     try:
@@ -171,6 +179,7 @@ def delete(device_id):
         return redirect(url_for('devices.show', device_id=device_id))
 
 @devices_bp.route('/scan', methods=['POST'])
+@login_required
 def scan_rfid():
     """Endpoint to handle RFID scan"""
     rfid_tag = request.json.get('rfid_tag')

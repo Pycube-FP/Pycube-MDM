@@ -16,6 +16,21 @@
             <ul class="navbar-nav">
                 <li><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
                 <li><a href="{{ url_for('devices.index') }}">Devices</a></li>
+                {% if session.get('logged_in') %}
+                <li>
+                    <a href="{{ url_for('auth.logout') }}" 
+                       style="background-color: var(--alert-color); color: white; padding: 0.5rem 1rem; border-radius: var(--border-radius-md);">
+                        Logout ({{ session.get('username', 'User') }})
+                    </a>
+                </li>
+                {% else %}
+                <li>
+                    <a href="{{ url_for('auth.login') }}"
+                       style="background-color: var(--primary-color); color: white; padding: 0.5rem 1rem; border-radius: var(--border-radius-md);">
+                        Login
+                    </a>
+                </li>
+                {% endif %}
             </ul>
         </div>
     </nav>
