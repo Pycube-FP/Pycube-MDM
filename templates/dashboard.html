@@ -2,50 +2,247 @@
 
 {% block title %}Dashboard - Pycube MDM{% endblock %}
 
+{% block extra_head %}
+<style>
+    .dashboard-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 1rem;
+    }
+    
+    .success-message {
+        background-color: #28a745;
+        color: white;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-bottom: 2rem;
+    }
+    
+    .dashboard-header {
+        background-color: white;
+        border-radius: 10px;
+        padding: 2rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .dashboard-header h1 {
+        margin-top: 0;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+        color: #333;
+    }
+    
+    .dashboard-header p {
+        margin-bottom: 0;
+        color: #666;
+        font-size: 1.1rem;
+    }
+    
+    .stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 2rem;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .stat-card.total {
+        background-color: white;
+    }
+    
+    .stat-card.missing {
+        background-color: rgba(220, 53, 69, 0.1);
+    }
+    
+    .stat-card.available {
+        background-color: rgba(40, 167, 69, 0.1);
+    }
+    
+    .stat-card.in-use {
+        background-color: rgba(13, 110, 253, 0.1);
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-number.total {
+        color: #333;
+    }
+    
+    .stat-number.missing {
+        color: #dc3545;
+    }
+    
+    .stat-number.available {
+        color: #28a745;
+    }
+    
+    .stat-number.in-use {
+        color: #0d6efd;
+    }
+    
+    .stat-label {
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #666;
+        letter-spacing: 0.5px;
+    }
+    
+    .chart-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .chart-card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+    
+    .chart-card h2 {
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+        color: #333;
+    }
+    
+    .chart-container {
+        height: 300px;
+        position: relative;
+    }
+    
+    .actions-card {
+        background-color: white;
+        border-radius: 10px;
+        padding: 2rem;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        margin-bottom: 2rem;
+    }
+    
+    .actions-card h2 {
+        margin-top: 0;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+        color: #333;
+    }
+    
+    .btn-row {
+        display: flex;
+        gap: 1rem;
+    }
+    
+    .btn {
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        font-size: 1rem;
+        transition: background-color 0.2s;
+    }
+    
+    .btn-primary {
+        background-color: #0176D3;
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background-color: #0165b8;
+    }
+    
+    .btn-success {
+        background-color: #28a745;
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background-color: #218838;
+    }
+    
+    .btn-info {
+        background-color: #0d6efd;
+        color: white;
+    }
+    
+    .btn-info:hover {
+        background-color: #0b5ed7;
+    }
+    
+    @media (max-width: 768px) {
+        .stats-row {
+            grid-template-columns: repeat(2, 1fr);
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .stats-row {
+            grid-template-columns: 1fr;
+        }
+        
+        .btn-row {
+            flex-direction: column;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="card">
-    <h1>Dashboard</h1>
-    <p>Welcome to the Pycube Mobile Device Management system. Monitor and track hospital devices.</p>
+{% if session.get('logged_in') %}
+<div class="success-message">
+    You are now logged in
 </div>
+{% endif %}
 
-<div class="row">
-    <!-- Total Devices -->
-    <div class="col-3">
-        <div class="card stats-card">
-            <span class="number">{{ stats.total_count }}</span>
-            <span class="label">Total Devices</span>
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Dashboard</h1>
+        <p>Welcome to the Pycube Mobile Device Management system. Monitor and track hospital devices.</p>
+    </div>
+    
+    <div class="stats-row">
+        <div class="stat-card total">
+            <div class="stat-number total">{{ stats.total_count }}</div>
+            <div class="stat-label">Total Devices</div>
+        </div>
+        
+        <div class="stat-card missing">
+            <div class="stat-number missing">{{ stats.missing_count }}</div>
+            <div class="stat-label">Missing Devices</div>
+        </div>
+        
+        <div class="stat-card available">
+            <div class="stat-number available">{{ stats.status_counts.get('Available', 0) }}</div>
+            <div class="stat-label">Available Devices</div>
+        </div>
+        
+        <div class="stat-card in-use">
+            <div class="stat-number in-use">{{ stats.status_counts.get('In-Use', 0) }}</div>
+            <div class="stat-label">In-Use Devices</div>
         </div>
     </div>
     
-    <!-- Missing Devices -->
-    <div class="col-3">
-        <div class="card stats-card" style="background-color: rgba(220, 53, 69, 0.1);">
-            <span class="number" style="color: var(--alert-color);">{{ stats.missing_count }}</span>
-            <span class="label">Missing Devices</span>
-        </div>
-    </div>
-    
-    <!-- Available Devices -->
-    <div class="col-3">
-        <div class="card stats-card" style="background-color: rgba(25, 135, 84, 0.1);">
-            <span class="number" style="color: var(--success-color);">{{ stats.status_counts.get('Available', 0) }}</span>
-            <span class="label">Available Devices</span>
-        </div>
-    </div>
-    
-    <!-- In-Use Devices -->
-    <div class="col-3">
-        <div class="card stats-card" style="background-color: rgba(13, 110, 253, 0.1);">
-            <span class="number" style="color: var(--info-color);">{{ stats.status_counts.get('In-Use', 0) }}</span>
-            <span class="label">In-Use Devices</span>
-        </div>
-    </div>
-</div>
-
-<div class="row" style="margin-top: var(--spacing-lg);">
-    <!-- Status Distribution Chart -->
-    <div class="col-6">
-        <div class="card">
+    <div class="chart-row">
+        <div class="chart-card">
             <h2>Device Status Distribution</h2>
             <div class="chart-container">
                 <canvas id="statusChart"></canvas>
@@ -53,26 +250,12 @@
         </div>
     </div>
     
-    <!-- Movement Chart -->
-    <div class="col-6">
-        <div class="card">
-            <h2>Device Movement History (Last 7 Days)</h2>
-            <div class="chart-container">
-                <canvas id="movementChart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row" style="margin-top: var(--spacing-lg);">
-    <div class="col-12">
-        <div class="card">
-            <h2>Quick Actions</h2>
-            <div style="display: flex; gap: var(--spacing-md);">
-                <a href="{{ url_for('devices.new') }}" class="btn btn-primary">Add New Device</a>
-                <a href="{{ url_for('devices.index') }}" class="btn btn-info">View All Devices</a>
-                <button id="scanBtn" class="btn btn-success">Scan RFID Tag</button>
-            </div>
+    <div class="actions-card">
+        <h2>Quick Actions</h2>
+        <div class="btn-row">
+            <a href="{{ url_for('devices.new') }}" class="btn btn-primary">Add New Device</a>
+            <a href="{{ url_for('devices.index') }}" class="btn btn-info">View All Devices</a>
+            <button id="scanBtn" class="btn btn-success">Scan RFID Tag</button>
         </div>
     </div>
 </div>
@@ -95,52 +278,20 @@
                         {{ stats.status_counts.get('Missing', 0) }}
                     ],
                     backgroundColor: [
-                        '#198754', // Success - Available
-                        '#0D6EFD', // Info - In-Use
-                        '#FFC107', // Warning - Maintenance
-                        '#DC3545'  // Alert - Missing
+                        '#28a745', // Success - Available
+                        '#0d6efd', // Info - In-Use
+                        '#ffc107', // Warning - Maintenance
+                        '#dc3545'  // Alert - Missing
                     ],
                     borderWidth: 1
                 }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false
-            }
-        });
-        
-        // Movement Chart
-        const dates = [];
-        const counts = [];
-        
-        {% for item in stats.movement_counts %}
-            dates.push('{{ item.date }}');
-            counts.push({{ item.count }});
-        {% endfor %}
-        
-        const movementCtx = document.getElementById('movementChart').getContext('2d');
-        const movementChart = new Chart(movementCtx, {
-            type: 'line',
-            data: {
-                labels: dates,
-                datasets: [{
-                    label: 'Device Movements',
-                    data: counts,
-                    backgroundColor: 'rgba(1, 4, 46, 0.2)',
-                    borderColor: '#01042E',
-                    borderWidth: 2,
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
                 maintainAspectRatio: false,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        }
+                plugins: {
+                    legend: {
+                        position: 'right'
                     }
                 }
             }

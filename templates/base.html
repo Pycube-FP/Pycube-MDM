@@ -6,16 +6,97 @@
     <title>{% block title %}Pycube MDM{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/pycube-logo.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='img/pycube-logo-white.png') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --navy-bg: #050E2F;
+            --blue-text: #3090C7;
+        }
+        
+        .navbar {
+            background-color: var(--navy-bg);
+            padding: 1rem 0;
+        }
+        
+        .navbar-brand {
+            display: flex;
+            align-items: center;
+            font-weight: 700;
+            font-size: 1.75rem;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+        }
+        
+        .navbar-brand .white-text {
+            color: white;
+        }
+        
+        .navbar-brand .blue-text {
+            color: var(--blue-text);
+        }
+        
+        .navbar-brand:hover {
+            text-decoration: none;
+        }
+        
+        .navbar-nav {
+            display: flex;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        
+        .navbar-nav li {
+            margin-left: 1.5rem;
+        }
+        
+        .navbar-nav a {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .navbar-nav a:hover {
+            color: #c5c5c5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        /* Alert styles */
+        .alert {
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 1rem;
+            border-radius: 0.25rem;
+            color: white;
+        }
+        
+        .alert-success {
+            background-color: #28a745;
+        }
+        
+        .alert-error {
+            background-color: #dc3545;
+        }
+        
+        .alert-info {
+            background-color: #17a2b8;
+        }
+    </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <nav class="navbar">
         <div class="container">
             <a href="{{ url_for('dashboard.index') }}" class="navbar-brand">
-                <img src="{{ url_for('static', filename='img/pycube-logo.png') }}" alt="Pycube Logo" height="30" style="margin-right: 10px; vertical-align: middle;">
-                Pycube MDM
+                <img src="{{ url_for('static', filename='img/pycube-logo-white.png') }}" alt="Pycube Logo" height="50">
             </a>
             <ul class="navbar-nav">
                 <li><a href="{{ url_for('dashboard.index') }}">Dashboard</a></li>
@@ -23,14 +104,14 @@
                 {% if session.get('logged_in') %}
                 <li>
                     <a href="{{ url_for('auth.logout') }}" 
-                       style="background-color: var(--alert-color); color: white; padding: 0.5rem 1rem; border-radius: var(--border-radius-md);">
+                       style="background-color: rgba(220, 53, 69, 0.8); color: white; padding: 0.5rem 1rem; border-radius: 4px;">
                         Logout ({{ session.get('username', 'User') }})
                     </a>
                 </li>
                 {% else %}
                 <li>
                     <a href="{{ url_for('auth.login') }}"
-                       style="background-color: var(--primary-color); color: white; padding: 0.5rem 1rem; border-radius: var(--border-radius-md);">
+                       style="background-color: #0176D3; color: white; padding: 0.5rem 1rem; border-radius: 4px;">
                         Login
                     </a>
                 </li>
@@ -39,17 +120,11 @@
         </div>
     </nav>
     
-    <div class="container" style="margin-top: var(--spacing-lg);">
+    <div class="container" style="margin-top: 2rem; display: block;">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }}" style="
-                        padding: var(--spacing-md);
-                        margin-bottom: var(--spacing-md);
-                        border-radius: var(--border-radius-md);
-                        background-color: {% if category == 'success' %}var(--success-color){% elif category == 'error' %}var(--alert-color){% else %}var(--info-color){% endif %};
-                        color: white;
-                    ">
+                    <div class="alert alert-{{ category }}">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -59,9 +134,9 @@
         {% block content %}{% endblock %}
     </div>
     
-    <footer style="margin-top: var(--spacing-xl); padding: var(--spacing-lg) 0; background-color: var(--primary-50); text-align: center;">
-        <div class="container">
-            <p>&copy; {{ now.year }} Pycube Inc. All rights reserved.</p>
+    <footer style="margin-top: 3rem; padding: 2rem 0; background-color: #f8f9fa; text-align: center;">
+        <div class="container" style="display: block;">
+            <p>Copyright © 2025 Pycube™. All rights reserved.</p>
         </div>
     </footer>
     
