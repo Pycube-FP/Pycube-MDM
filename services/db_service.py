@@ -128,7 +128,7 @@ class DBService:
                     nurse_id VARCHAR(36),
                     assigned_at DATETIME,
                     returned_at DATETIME,
-                    status ENUM('Active', 'Returned', 'Lost') DEFAULT 'Active',
+                    status ENUM('Active', 'Transferred', 'Lost', 'Returned') DEFAULT 'Active',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (device_id) REFERENCES devices(id),

@@ -64,7 +64,10 @@ def assign_device():
             rfid_tag=device['rfid_tag'],
             barcode=device['barcode'],
             status='In-Use',
-            assigned_to=nurse_name  # Store the nurse's full name instead of ID
+            location_id=device['location_id'],
+            assigned_to=nurse_name,  # Store the nurse's full name instead of ID
+            purchase_date=device['purchase_date'],
+            last_maintenance_date=device['last_maintenance_date']
         )
         
         # Save assignment and update device
@@ -131,7 +134,7 @@ def transfer_device():
         
         # Don't allow transfer to same nurse
         if current_assignment_data['nurse_id'] == to_nurse['id']:
-            return jsonify({'error': 'Device is already assigned to this nurse'}), 400
+            return jsonify({'error': 'Cannot assign device to the same nurse'}), 400
         
         # Create DeviceAssignment object for current assignment
         current_assignment = DeviceAssignment(
@@ -140,7 +143,7 @@ def transfer_device():
             assigned_at=current_assignment_data['assigned_at']
         )
         current_assignment.id = current_assignment_data['id']  # Set the ID after creation
-        current_assignment.status = 'Returned'
+        current_assignment.status = 'Transferred'
         current_assignment.returned_at = datetime.now()
         db_service.update_device_assignment(current_assignment)
         
@@ -223,5 +226,42 @@ def return_device():
             'assignment': current_assignment.to_dict()
         })
     
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@assignments_bp.route('/consolidated', methods=['GET'])
+@login_required
+def consolidated_assignment():
+    """Render the consolidated assignment page"""
+    return render_template('assignments/consolidated_assignment.html')
+
+@assignments_bp.route('/consolidated', methods=['POST'])
+@login_required
+def handle_consolidated_assignment():
+    """Handle assignment or transfer based on device status"""
+    try:
+        device_barcode = request.form.get('device_barcode')
+        nurse_barcode = request.form.get('nurse_barcode')
+        
+        if not device_barcode or not nurse_barcode:
+            return jsonify({'error': 'Both device and nurse barcodes are required'}), 400
+        
+        db_service = DBService()
+        
+        # Get device and nurse
+        device = db_service.get_device_by_barcode(device_barcode)
+        nurse = db_service.get_nurse_by_barcode(nurse_barcode)
+        
+        if not device or not nurse:
+            return jsonify({'error': 'Device or nurse not found'}), 404
+        
+        # Check if the device is currently assigned
+        current_assignment = db_service.get_active_assignment(device['id'])
+        if current_assignment:
+            # Perform transfer
+            return transfer_device()
+        else:
+            # Perform new assignment
+            return assign_device()
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
