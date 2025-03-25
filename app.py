@@ -1,6 +1,6 @@
 from flask import Flask, redirect, url_for
 import os
-from routes import dashboard_bp, devices_bp, auth_bp
+from routes import dashboard_bp, devices_bp, auth_bp, assignments_bp, rfid_bp, nurses_bp
 from services.db_service import DBService
 from datetime import datetime
 
@@ -15,6 +15,9 @@ def create_app():
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(devices_bp)
     app.register_blueprint(auth_bp)
+    app.register_blueprint(assignments_bp)
+    app.register_blueprint(rfid_bp)
+    app.register_blueprint(nurses_bp)
     
     # Initialize the database
     with app.app_context():

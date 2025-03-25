@@ -11,25 +11,53 @@
     
     <div style="margin-bottom: var(--spacing-lg);">
         <div style="display: flex; gap: var(--spacing-md);">
-            <a href="{{ url_for('devices.index') }}" class="btn {% if not status_filter %}btn-primary{% else %}btn-info{% endif %}">All</a>
-            <a href="{{ url_for('devices.index', status='Available') }}" class="btn {% if status_filter == 'Available' %}btn-primary{% else %}btn-success{% endif %}">Available</a>
-            <a href="{{ url_for('devices.index', status='In-Use') }}" class="btn {% if status_filter == 'In-Use' %}btn-primary{% else %}btn-info{% endif %}">In-Use</a>
-            <a href="{{ url_for('devices.index', status='Maintenance') }}" class="btn {% if status_filter == 'Maintenance' %}btn-primary{% else %}btn-warning{% endif %}">Maintenance</a>
-            <a href="{{ url_for('devices.index', status='Missing') }}" class="btn {% if status_filter == 'Missing' %}btn-primary{% else %}btn-danger{% endif %}">Missing</a>
+            <a href="{{ url_for('devices.index', sort=sort_by, dir=sort_dir) }}" class="btn {% if not status_filter %}btn-primary{% else %}btn-info{% endif %}">All</a>
+            <a href="{{ url_for('devices.index', status='Available', sort=sort_by, dir=sort_dir) }}" class="btn {% if status_filter == 'Available' %}btn-primary{% else %}btn-success{% endif %}">Available</a>
+            <a href="{{ url_for('devices.index', status='In-Use', sort=sort_by, dir=sort_dir) }}" class="btn {% if status_filter == 'In-Use' %}btn-primary{% else %}btn-info{% endif %}">In-Use</a>
+            <a href="{{ url_for('devices.index', status='Maintenance', sort=sort_by, dir=sort_dir) }}" class="btn {% if status_filter == 'Maintenance' %}btn-primary{% else %}btn-warning{% endif %}">Maintenance</a>
+            <a href="{{ url_for('devices.index', status='Missing', sort=sort_by, dir=sort_dir) }}" class="btn {% if status_filter == 'Missing' %}btn-primary{% else %}btn-danger{% endif %}">Missing</a>
         </div>
     </div>
     
     <table class="table table-hover">
         <thead>
             <tr>
-                <th>Status</th>
-                <th>Model</th>
-                <th>Serial Number</th>
-                <th>Assigned To</th>
+                <th class="sortable" data-sort="status">
+                    Status
+                    {% if sort_by == 'status' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th class="sortable" data-sort="model">
+                    Model
+                    {% if sort_by == 'model' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th class="sortable" data-sort="serial_number">
+                    Serial Number
+                    {% if sort_by == 'serial_number' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th class="sortable" data-sort="assigned_to">
+                    Assigned To
+                    {% if sort_by == 'assigned_to' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
                 <th>Actions</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="devices-table-body">
             {% for device in devices %}
             <tr>
                 <td>
@@ -56,15 +84,33 @@
     </table>
     
     <!-- Pagination -->
-    <div style="display: flex; justify-content: center; margin-top: var(--spacing-lg);">
+    <div id="pagination-container" style="display: flex; justify-content: center; align-items: center; margin-top: var(--spacing-lg); gap: var(--spacing-md);">
         {% if current_page > 1 %}
-        <a href="{{ url_for('devices.index', page=current_page-1, status=status_filter) }}" class="btn btn-info" style="margin-right: var(--spacing-sm);">Previous</a>
+        <button onclick="changePage({{ current_page - 1 }})" 
+           class="btn {% if current_page == 1 %}text-muted{% else %}text-body{% endif %}" 
+           style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+            <i class="fas fa-chevron-left"></i><i class="fas fa-chevron-left"></i>
+            <span style="font-weight: 500;">Previous</span>
+        </button>
         {% endif %}
-        
-        <span style="line-height: 2.25; margin: 0 var(--spacing-md);">Page {{ current_page }}</span>
-        
-        {% if devices|length == 10 %}
-        <a href="{{ url_for('devices.index', page=current_page+1, status=status_filter) }}" class="btn btn-info" style="margin-left: var(--spacing-sm);">Next</a>
+
+        <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+            {% for p in range(1, total_pages + 1) %}
+                <button onclick="changePage({{ p }})"
+                   class="btn rounded-2 {% if current_page == p %}bg-dark text-white{% else %}bg-light text-body{% endif %}"
+                   style="min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 500;">
+                    {{ p }}
+                </button>
+            {% endfor %}
+        </div>
+
+        {% if current_page < total_pages %}
+        <button onclick="changePage({{ current_page + 1 }})"
+           class="btn {% if current_page == total_pages %}text-muted{% else %}text-body{% endif %}"
+           style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+            <span style="font-weight: 500;">Next</span>
+            <i class="fas fa-chevron-right"></i><i class="fas fa-chevron-right"></i>
+        </button>
         {% endif %}
     </div>
 </div>
@@ -87,31 +133,177 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        initializeDeleteHandlers();
+        initializeSortHandlers();
+    });
+
+    function initializeDeleteHandlers() {
         const deleteModal = document.getElementById('deleteModal');
         const deleteForm = document.getElementById('deleteForm');
         const cancelDelete = document.getElementById('cancelDelete');
         
-        // Show modal when delete button is clicked
         document.querySelectorAll('.delete-device').forEach(button => {
             button.addEventListener('click', function() {
                 const deviceId = this.getAttribute('data-id');
                 deleteForm.action = `/devices/${deviceId}/delete`;
                 deleteModal.style.display = 'block';
             });
-
         });
         
-        // Hide modal when cancel is clicked
         cancelDelete.addEventListener('click', function() {
             deleteModal.style.display = 'none';
         });
         
-        // Hide modal when clicking outside
         deleteModal.addEventListener('click', function(event) {
             if (event.target === deleteModal) {
                 deleteModal.style.display = 'none';
             }
         });
-    });
+    }
+
+    function initializeSortHandlers() {
+        document.querySelectorAll('th.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const sort = this.dataset.sort;
+                let dir = 'asc';
+                
+                if ('{{ sort_by }}' === sort) {
+                    dir = '{{ sort_dir }}' === 'asc' ? 'desc' : 'asc';
+                }
+                
+                const status = '{{ status_filter }}';
+                loadDevices(1, sort, dir, status !== 'None' ? status : null);
+            });
+        });
+    }
+
+    async function changePage(page) {
+        const sort = '{{ sort_by }}';
+        const dir = '{{ sort_dir }}';
+        const status = '{{ status_filter }}';
+        await loadDevices(page, sort, dir, status !== 'None' ? status : null);
+    }
+
+    async function loadDevices(page, sort, dir, status) {
+        try {
+            // Show loading state
+            document.getElementById('devices-table-body').style.opacity = '0.5';
+            
+            // Build URL with query parameters
+            const params = new URLSearchParams({
+                page: page,
+                sort: sort || '',
+                dir: dir || 'asc'
+            });
+            if (status) params.append('status', status);
+            
+            // Fetch data from API
+            const response = await fetch(`/devices/api/list?${params}`);
+            const data = await response.json();
+            
+            if (!response.ok) throw new Error(data.error || 'Failed to load devices');
+            
+            // Update table content
+            updateTable(data.devices);
+            
+            // Update pagination
+            updatePagination(data.current_page, data.total_pages);
+            
+            // Update URL without page reload
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.set('page', page);
+            if (sort) newUrl.searchParams.set('sort', sort);
+            if (dir) newUrl.searchParams.set('dir', dir);
+            if (status) newUrl.searchParams.set('status', status);
+            window.history.pushState({}, '', newUrl);
+            
+        } catch (error) {
+            console.error('Error loading devices:', error);
+            // Show error toast
+            new Toast().error('Failed to load devices');
+        } finally {
+            // Remove loading state
+            document.getElementById('devices-table-body').style.opacity = '1';
+        }
+    }
+
+    function updateTable(devices) {
+        const tbody = document.getElementById('devices-table-body');
+        if (!devices.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: var(--spacing-lg);">
+                        No devices found. <a href="{{ url_for('devices.new') }}">Add a new device</a>.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = devices.map(device => `
+            <tr>
+                <td>
+                    <span class="status-indicator status-${device.status.toLowerCase()}"></span>
+                    ${device.status}
+                </td>
+                <td>${device.manufacturer} ${device.model}</td>
+                <td>${device.serial_number}</td>
+                <td>${device.assigned_to || 'Unassigned'}</td>
+                <td>
+                    <a href="/devices/${device.id}" class="btn btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">View</a>
+                    <a href="/devices/${device.id}/edit" class="btn btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Edit</a>
+                    <button class="btn btn-danger delete-device" data-id="${device.id}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+
+        // Reinitialize delete handlers for new buttons
+        initializeDeleteHandlers();
+    }
+
+    function updatePagination(currentPage, totalPages) {
+        const container = document.getElementById('pagination-container');
+        
+        let html = '';
+        
+        // Previous button
+        if (currentPage > 1) {
+            html += `
+                <button onclick="changePage(${currentPage - 1})" 
+                    class="btn text-body" 
+                    style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+                    <i class="fas fa-chevron-left"></i><i class="fas fa-chevron-left"></i>
+                    <span style="font-weight: 500;">Previous</span>
+                </button>
+            `;
+        }
+        
+        // Page numbers
+        html += '<div style="display: flex; gap: var(--spacing-sm); align-items: center;">';
+        for (let p = 1; p <= totalPages; p++) {
+            html += `
+                <button onclick="changePage(${p})"
+                    class="btn rounded-2 ${currentPage === p ? 'bg-dark text-white' : 'bg-light text-body'}"
+                    style="min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 500;">
+                    ${p}
+                </button>
+            `;
+        }
+        html += '</div>';
+        
+        // Next button
+        if (currentPage < totalPages) {
+            html += `
+                <button onclick="changePage(${currentPage + 1})"
+                    class="btn text-body"
+                    style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+                    <span style="font-weight: 500;">Next</span>
+                    <i class="fas fa-chevron-right"></i><i class="fas fa-chevron-right"></i>
+                </button>
+            `;
+        }
+        
+        container.innerHTML = html;
+    }
 </script>
 {% endblock %} 

@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block title %}Nurses - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <h1 class="mb-0">Nurses</h1>
+        <a href="{{ url_for('nurses.create') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Add Nurse
+        </a>
+    </div>
+
+    {% if nurses %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th class="sortable" data-sort="badge_id">
+                    Badge ID
+                    {% if sort_by == 'badge_id' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th class="sortable" data-sort="name">
+                    Name
+                    {% if sort_by == 'name' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th class="sortable" data-sort="department">
+                    Department
+                    {% if sort_by == 'department' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th class="sortable" data-sort="shift">
+                    Shift
+                    {% if sort_by == 'shift' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th class="sortable" data-sort="created_at">
+                    Added On
+                    {% if sort_by == 'created_at' %}
+                        <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                    {% else %}
+                        <i class="fas fa-sort"></i>
+                    {% endif %}
+                </th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="nurses-table-body">
+            {% for nurse in nurses %}
+            <tr>
+                <td class="text-body">{{ nurse.badge_id }}</td>
+                <td class="text-body">{{ nurse.first_name }} {{ nurse.last_name }}</td>
+                <td class="text-body">{{ nurse.department }}</td>
+                <td class="text-body">{{ nurse.shift }}</td>
+                <td class="text-body">{{ nurse.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('nurses.show', nurse_id=nurse.id) }}" class="btn btn-sm btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('nurses.edit', nurse_id=nurse.id) }}" class="btn btn-sm btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger delete-nurse" data-id="{{ nurse.id }}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <!-- Pagination -->
+    <div id="pagination-container" style="display: flex; justify-content: center; align-items: center; margin-top: var(--spacing-lg); gap: var(--spacing-md);">
+        {% if current_page > 1 %}
+        <button onclick="changePage({{ current_page - 1 }})" 
+            class="btn {% if current_page == 1 %}text-muted{% else %}text-body{% endif %}" 
+            style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+            <i class="fas fa-chevron-left"></i><i class="fas fa-chevron-left"></i>
+            <span style="font-weight: 500;">Previous</span>
+        </button>
+        {% endif %}
+
+        <div style="display: flex; gap: var(--spacing-sm); align-items: center;">
+            {% for p in range(1, total_pages + 1) %}
+            <button onclick="changePage({{ p }})"
+                class="btn rounded-2 {% if current_page == p %}bg-dark text-white{% else %}bg-light text-body{% endif %}"
+                style="min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 500;">
+                {{ p }}
+            </button>
+            {% endfor %}
+        </div>
+
+        {% if current_page < total_pages %}
+        <button onclick="changePage({{ current_page + 1 }})"
+            class="btn {% if current_page == total_pages %}text-muted{% else %}text-body{% endif %}"
+            style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+            <span style="font-weight: 500;">Next</span>
+            <i class="fas fa-chevron-right"></i><i class="fas fa-chevron-right"></i>
+        </button>
+        {% endif %}
+    </div>
+    {% else %}
+    <p class="text-body text-center">No nurses found. Add a nurse to get started.</p>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); z-index: 1000;">
+    <div style="position: relative; top: 50%; transform: translateY(-50%); margin: 0 auto; width: 400px; background-color: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);">
+        <h3 class="mb-3">Confirm Deletion</h3>
+        <p class="text-body mb-4">Are you sure you want to delete this nurse? This action cannot be undone.</p>
+        <div style="display: flex; justify-content: flex-end; gap: 1rem;">
+            <button id="cancelDelete" class="btn btn-info">Cancel</button>
+            <form id="deleteForm" method="POST">
+                <button type="submit" class="btn btn-danger">Delete</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeDeleteHandlers();
+        initializeSortHandlers();
+    });
+
+    function initializeDeleteHandlers() {
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteForm = document.getElementById('deleteForm');
+        const cancelDelete = document.getElementById('cancelDelete');
+        
+        document.querySelectorAll('.delete-nurse').forEach(function(button) {
+            button.addEventListener('click', function(event) {
+                const nurseId = this.dataset.id;
+                deleteForm.action = `/nurses/${nurseId}/delete`;
+                deleteModal.style.display = 'block';
+            });
+        });
+        
+        if (cancelDelete) {
+            cancelDelete.addEventListener('click', function(event) {
+                deleteModal.style.display = 'none';
+            });
+        }
+        
+        if (deleteModal) {
+            deleteModal.addEventListener('click', function(event) {
+                if (event.target === deleteModal) {
+                    deleteModal.style.display = 'none';
+                }
+            });
+        }
+    }
+
+    function initializeSortHandlers() {
+        document.querySelectorAll('th.sortable').forEach(function(header) {
+            header.addEventListener('click', function(event) {
+                const sort = this.dataset.sort;
+                let dir = 'asc';
+                
+                if ('{{ sort_by }}' === sort) {
+                    dir = '{{ sort_dir }}' === 'asc' ? 'desc' : 'asc';
+                }
+                
+                loadNurses(1, sort, dir);
+            });
+        });
+    }
+
+    async function changePage(page) {
+        const sort = '{{ sort_by }}' || '';
+        const dir = '{{ sort_dir }}' || 'asc';
+        await loadNurses(page, sort, dir);
+    }
+
+    async function loadNurses(page, sort, dir) {
+        try {
+            // Show loading state
+            const tbody = document.getElementById('nurses-table-body');
+            if (!tbody) return;
+            tbody.style.opacity = '0.5';
+            
+            // Build URL with query parameters
+            const params = new URLSearchParams();
+            params.append('page', page);
+            params.append('sort', sort);
+            params.append('dir', dir);
+            
+            // Fetch data from API
+            const response = await fetch(`/nurses/api/list?${params.toString()}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to load nurses');
+            }
+            
+            // Update table content
+            updateTable(data.nurses);
+            
+            // Update pagination
+            updatePagination(data.current_page, data.total_pages);
+            
+            // Update URL without page reload
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.set('page', page.toString());
+            if (sort) newUrl.searchParams.set('sort', sort);
+            if (dir) newUrl.searchParams.set('dir', dir);
+            window.history.pushState({}, '', newUrl.toString());
+            
+        } catch (error) {
+            console.error('Error loading nurses:', error);
+            new Toast().error('Failed to load nurses');
+        } finally {
+            const tbody = document.getElementById('nurses-table-body');
+            if (tbody) tbody.style.opacity = '1';
+        }
+    }
+
+    function updateTable(nurses) {
+        const tbody = document.getElementById('nurses-table-body');
+        if (!nurses.length) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="6" style="text-align: center; padding: var(--spacing-lg);">
+                        No nurses found. <a href="{{ url_for('nurses.new') }}">Add a new nurse</a>.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = nurses.map(nurse => `
+            <tr>
+                <td>${nurse.badge_id}</td>
+                <td>${nurse.first_name} ${nurse.last_name}</td>
+                <td>${nurse.department}</td>
+                <td>${nurse.shift}</td>
+                <td>${new Date(nurse.created_at).toLocaleDateString()}</td>
+                <td>
+                    <a href="/nurses/${nurse.id}" class="btn btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">View</a>
+                    <a href="/nurses/${nurse.id}/edit" class="btn btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Edit</a>
+                    <button class="btn btn-danger delete-nurse" data-id="${nurse.id}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+
+        // Reinitialize delete handlers for new buttons
+        initializeDeleteHandlers();
+    }
+
+    function updatePagination(currentPage, totalPages) {
+        const container = document.getElementById('pagination-container');
+        
+        let html = '';
+        
+        // Previous button
+        if (currentPage > 1) {
+            html += `
+                <button onclick="changePage(${currentPage - 1})" 
+                    class="btn text-body" 
+                    style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+                    <i class="fas fa-chevron-left"></i><i class="fas fa-chevron-left"></i>
+                    <span style="font-weight: 500;">Previous</span>
+                </button>
+            `;
+        }
+        
+        // Page numbers
+        html += '<div style="display: flex; gap: var(--spacing-sm); align-items: center;">';
+        for (let p = 1; p <= totalPages; p++) {
+            html += `
+                <button onclick="changePage(${p})"
+                    class="btn rounded-2 ${currentPage === p ? 'bg-dark text-white' : 'bg-light text-body'}"
+                    style="min-width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 500;">
+                    ${p}
+                </button>
+            `;
+        }
+        html += '</div>';
+        
+        // Next button
+        if (currentPage < totalPages) {
+            html += `
+                <button onclick="changePage(${currentPage + 1})"
+                    class="btn text-body"
+                    style="text-decoration: none; display: flex; align-items: center; gap: 0.5rem; border: none; background: none;">
+                    <span style="font-weight: 500;">Next</span>
+                    <i class="fas fa-chevron-right"></i><i class="fas fa-chevron-right"></i>
+                </button>
+            `;
+        }
+        
+        container.innerHTML = html;
+    }
+</script>
+{% endblock %} 

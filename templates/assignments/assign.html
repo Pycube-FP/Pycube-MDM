@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+
+{% block title %}Assign Device - Pycube MDM{% endblock %}
+
+{% block extra_head %}
+<style>
+    .assignment-container {
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 2rem;
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    .scan-section {
+        margin: 2rem 0;
+        padding: 2rem;
+        border: 2px dashed #ddd;
+        border-radius: 8px;
+        text-align: center;
+    }
+
+    .scan-button {
+        background-color: #0176D3;
+        color: white;
+        padding: 1rem 2rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 1.1rem;
+        cursor: pointer;
+        margin: 1rem;
+        transition: background-color 0.2s;
+    }
+
+    .scan-button:hover {
+        background-color: #0165b8;
+    }
+
+    .scan-result {
+        margin-top: 1rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        display: none;
+    }
+
+    .scan-result.success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+
+    .scan-result.error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+
+    .assignment-details {
+        margin-top: 2rem;
+        padding: 1rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+
+    .detail-row {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #eee;
+    }
+
+    .detail-label {
+        font-weight: 500;
+        color: #666;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="assignment-container">
+    <h1>Assign Device</h1>
+    <p class="text-muted">Scan device and nurse barcodes to assign a device</p>
+
+    <div class="scan-section">
+        <h3>Step 1: Scan Device</h3>
+        <button id="scanDeviceBtn" class="scan-button">
+            <i class="fas fa-barcode"></i> Scan Device Barcode
+        </button>
+        <div id="deviceResult" class="scan-result"></div>
+    </div>
+
+    <div class="scan-section">
+        <h3>Step 2: Scan Nurse ID</h3>
+        <button id="scanNurseBtn" class="scan-button">
+            <i class="fas fa-barcode"></i> Scan Nurse ID
+        </button>
+        <div id="nurseResult" class="scan-result"></div>
+    </div>
+
+    <div id="assignmentDetails" class="assignment-details" style="display: none;">
+        <h3>Assignment Details</h3>
+        <div class="detail-row">
+            <span class="detail-label">Device:</span>
+            <span id="deviceInfo">-</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Nurse:</span>
+            <span id="nurseInfo">-</span>
+        </div>
+        <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <span id="assignmentStatus">-</span>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let deviceBarcode = null;
+    let nurseBarcode = null;
+
+    document.getElementById('scanDeviceBtn').addEventListener('click', async () => {
+        // In a real app, this would interface with a barcode scanner
+        const barcode = prompt('Scan or enter device barcode:');
+        if (barcode) {
+            try {
+                const response = await fetch(`/devices/lookup/${barcode}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    deviceBarcode = barcode;
+                    const resultDiv = document.getElementById('deviceResult');
+                    resultDiv.textContent = `Device found: ${data.device.model} (${data.device.serial_number})`;
+                    resultDiv.className = 'scan-result success';
+                    resultDiv.style.display = 'block';
+                    document.getElementById('deviceInfo').textContent = `${data.device.model} (${data.device.serial_number})`;
+                } else {
+                    throw new Error('Device not found');
+                }
+            } catch (error) {
+                const resultDiv = document.getElementById('deviceResult');
+                resultDiv.textContent = 'Error: Device not found';
+                resultDiv.className = 'scan-result error';
+                resultDiv.style.display = 'block';
+            }
+        }
+    });
+
+    document.getElementById('scanNurseBtn').addEventListener('click', async () => {
+        // In a real app, this would interface with a barcode scanner
+        const barcode = prompt('Scan or enter nurse ID:');
+        if (barcode) {
+            try {
+                const response = await fetch(`/nurses/lookup/${barcode}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    nurseBarcode = barcode;
+                    const resultDiv = document.getElementById('nurseResult');
+                    const nurseName = `${data.nurse.first_name} ${data.nurse.last_name}`;
+                    resultDiv.textContent = `Nurse found: ${nurseName} (${data.nurse.department})`;
+                    resultDiv.className = 'scan-result success';
+                    resultDiv.style.display = 'block';
+                    document.getElementById('nurseInfo').textContent = `${nurseName} (${data.nurse.department})`;
+                    
+                    if (deviceBarcode && nurseBarcode) {
+                        assignDevice();
+                    }
+                } else {
+                    throw new Error('Nurse not found');
+                }
+            } catch (error) {
+                const resultDiv = document.getElementById('nurseResult');
+                resultDiv.textContent = 'Error: Nurse not found';
+                resultDiv.className = 'scan-result error';
+                resultDiv.style.display = 'block';
+            }
+        }
+    });
+
+    async function assignDevice() {
+        try {
+            const response = await fetch('/assignments/assign', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `device_barcode=${deviceBarcode}&nurse_barcode=${nurseBarcode}`
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                document.getElementById('assignmentStatus').textContent = 'Successfully assigned';
+                document.getElementById('assignmentDetails').style.display = 'block';
+                
+                // Update nurse info in assignment details
+                const nurseInfo = document.getElementById('nurseInfo');
+                if (data.assignment.nurse_name && data.assignment.department) {
+                    nurseInfo.textContent = `${data.assignment.nurse_name} (${data.assignment.department})`;
+                }
+                
+                // Create success message with link
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'alert alert-success mt-4';
+                resultDiv.innerHTML = `
+                    ${data.message}<br>
+                    <a href="${data.next_action.url}" class="btn btn-primary mt-2">
+                        ${data.next_action.text}
+                    </a>
+                `;
+                
+                // Insert the message after assignmentDetails
+                const assignmentDetails = document.getElementById('assignmentDetails');
+                assignmentDetails.parentNode.insertBefore(resultDiv, assignmentDetails.nextSibling);
+                
+                // Clear the form fields and results
+                deviceBarcode = null;
+                nurseBarcode = null;
+                document.getElementById('deviceResult').style.display = 'none';
+                document.getElementById('nurseResult').style.display = 'none';
+            } else {
+                throw new Error(data.error || 'Failed to assign device');
+            }
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        }
+    }
+</script>
+{% endblock %} 

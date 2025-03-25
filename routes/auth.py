@@ -35,7 +35,7 @@ def login():
         if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
             session['logged_in'] = True
             session['username'] = username
-            flash('You are now logged in', 'success')
+            flash('Successful login', 'success')
             
             # Redirect to the requested URL or default to dashboard
             next_page = request.args.get('next')
@@ -51,5 +51,4 @@ def login():
 def logout():
     """Handle user logout"""
     session.clear()
-    flash('You have been logged out', 'success')
     return redirect(url_for('auth.login')) 

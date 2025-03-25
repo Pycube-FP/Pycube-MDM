@@ -34,6 +34,10 @@
                     <td>{{ device.rfid_tag }}</td>
                 </tr>
                 <tr>
+                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Barcode:</td>
+                    <td>{{ device.barcode }}</td>
+                </tr>
+                <tr>
                     <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Assigned To:</td>
                     <td>{{ device.assigned_to or 'Unassigned' }}</td>
                 </tr>
@@ -75,14 +79,43 @@
     
     <hr style="margin: var(--spacing-lg) 0;">
     
-    <h2>Movement History</h2>
+    <h2>Assignment History</h2>
+    {% if assignments %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Assigned To</th>
+                <th>Department</th>
+                <th>Assigned At</th>
+                <th>Status</th>
+                <th>Returned At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for assignment in assignments %}
+            <tr>
+                <td>{{ assignment.nurse_name }}</td>
+                <td>{{ assignment.department }}</td>
+                <td>{{ assignment.created_at.strftime('%Y-%m-%d %H:%M:%S') if assignment.created_at else 'Unknown' }}</td>
+                <td>{{ assignment.status }}</td>
+                <td>{{ assignment.returned_at.strftime('%Y-%m-%d %H:%M:%S') if assignment.returned_at else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No assignment history found for this device.</p>
+    {% endif %}
+    
+    <hr style="margin: var(--spacing-lg) 0;">
+    
+    <h2>Reader Events</h2>
     
     {% if movements %}
     <table class="table table-hover">
         <thead>
             <tr>
                 <th>Timestamp</th>
-                <th>Direction</th>
                 <th>Location</th>
                 <th>Reader ID</th>
             </tr>
@@ -91,13 +124,6 @@
             {% for movement in movements %}
             <tr>
                 <td>{{ movement.timestamp.strftime('%Y-%m-%d %H:%M:%S') if movement.timestamp else 'Unknown' }}</td>
-                <td>
-                    {% if movement.direction == 'IN' %}
-                    <span style="color: var(--success-color);">IN</span>
-                    {% else %}
-                    <span style="color: var(--alert-color);">OUT</span>
-                    {% endif %}
-                </td>
                 <td>{{ movement.location_name or 'Unknown' }}</td>
                 <td>{{ movement.reader_id or 'Unknown' }}</td>
             </tr>
@@ -105,7 +131,7 @@
         </tbody>
     </table>
     {% else %}
-    <p>No movement records found for this device.</p>
+    <p>No reader events found for this device.</p>
     {% endif %}
 </div>
 

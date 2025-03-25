@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Nurse - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>Edit Nurse</h1>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <a href="{{ url_for('nurses.show', nurse_id=nurse.id) }}" class="btn btn-info">Back to Details</a>
+            <a href="{{ url_for('nurses.index') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+    
+    <form method="POST" action="{{ url_for('nurses.update', nurse_id=nurse.id) }}">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="first_name" class="form-label">First Name</label>
+                    <input type="text" class="form-control" id="first_name" name="first_name" value="{{ nurse.first_name }}" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="last_name" class="form-label">Last Name</label>
+                    <input type="text" class="form-control" id="last_name" name="last_name" value="{{ nurse.last_name }}" required>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="badge_id" class="form-label">Badge ID</label>
+                    <input type="text" class="form-control" id="badge_id" name="badge_id" value="{{ nurse.badge_id }}" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="department" class="form-label">Department</label>
+                    <input type="text" class="form-control" id="department" name="department" value="{{ nurse.department }}" required>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="shift" class="form-label">Shift</label>
+                    <select class="form-control" id="shift" name="shift" required>
+                        <option value="Day" {% if nurse.shift == 'Day' %}selected{% endif %}>Day</option>
+                        <option value="Night" {% if nurse.shift == 'Night' %}selected{% endif %}>Night</option>
+                        <option value="Swing" {% if nurse.shift == 'Swing' %}selected{% endif %}>Swing</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email (Optional)</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ nurse.email }}">
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="phone" class="form-label">Phone (Optional)</label>
+                    <input type="tel" class="form-control" id="phone" name="phone" value="{{ nurse.phone }}">
+                </div>
+            </div>
+        </div>
+        
+        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
+            <a href="{{ url_for('nurses.show', nurse_id=nurse.id) }}" class="btn btn-secondary">Cancel</a>
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+        </div>
+    </form>
+</div>
+{% endblock %} 
