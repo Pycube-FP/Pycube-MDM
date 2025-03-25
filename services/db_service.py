@@ -736,6 +736,10 @@ class DBService:
             cursor.close()
             connection.close()
 
+    def get_nurse_by_barcode(self, barcode):
+        """Get a nurse by barcode (alias for get_nurse_by_badge)"""
+        return self.get_nurse_by_badge(barcode)
+
     def get_all_nurses(self, limit=10, offset=0, sort_by=None, sort_dir='asc'):
         """Get all nurses with pagination and sorting"""
         connection = self.get_connection()
@@ -945,6 +949,29 @@ class DBService:
             return cursor.fetchall()
         except Exception as e:
             print(f"Error retrieving nurse assignments: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+
+    def get_nurse_active_assignment(self, nurse_id):
+        """Get the active device assignment for a nurse"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = """
+                SELECT da.*, d.model, d.serial_number, d.manufacturer
+                FROM device_assignments da
+                LEFT JOIN devices d ON da.device_id = d.id
+                WHERE da.nurse_id = %s AND da.status = 'Active'
+                ORDER BY da.assigned_at DESC
+                LIMIT 1
+            """
+            cursor.execute(query, (nurse_id,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error retrieving nurse's active assignment: {e}")
             raise
         finally:
             cursor.close()

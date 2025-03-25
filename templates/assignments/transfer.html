@@ -114,6 +114,76 @@
     .step:last-child::after {
         display: none;
     }
+
+    .custom-toast {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 25px;
+        background-color: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 300px;
+        max-width: 450px;
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .custom-toast.error {
+        border-left: 4px solid #dc3545;
+    }
+
+    .custom-toast .icon {
+        color: #dc3545;
+        font-size: 20px;
+    }
+
+    .custom-toast .content {
+        flex-grow: 1;
+    }
+
+    .custom-toast .title {
+        font-weight: 600;
+        color: #dc3545;
+        margin-bottom: 4px;
+    }
+
+    .custom-toast .message {
+        color: #333;
+        font-size: 14px;
+    }
+
+    .custom-toast .close-btn {
+        color: #666;
+        cursor: pointer;
+        padding: 4px;
+        font-size: 18px;
+    }
+
+    @keyframes slideIn {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes fadeOut {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -186,9 +256,10 @@
                     resultDiv.style.display = 'block';
                     document.getElementById('deviceInfo').textContent = `${data.device.model} (${data.device.serial_number})`;
                     document.getElementById('currentAssignmentInfo').textContent = data.device.assigned_to ? 
-                        `Assigned to: ${data.device.assigned_to_name}` : 'Not currently assigned';
+                        `${data.device.assigned_to}` : 'Not currently assigned';
                     document.getElementById('step1').classList.add('completed');
                     document.getElementById('step2').classList.add('active');
+                    document.getElementById('transferDetails').style.display = 'block';
                 } else {
                     throw new Error('Device not found');
                 }
@@ -211,10 +282,11 @@
                 if (data.success) {
                     nurseBarcode = barcode;
                     const resultDiv = document.getElementById('nurseResult');
-                    resultDiv.textContent = `ID verified: ${data.nurse.name} (${data.nurse.department})`;
+                    const nurseName = `${data.nurse.first_name} ${data.nurse.last_name}`;
+                    resultDiv.textContent = `ID verified: ${nurseName} (${data.nurse.department})`;
                     resultDiv.className = 'scan-result success';
                     resultDiv.style.display = 'block';
-                    document.getElementById('newNurseInfo').textContent = `${data.nurse.name} (${data.nurse.department})`;
+                    document.getElementById('newNurseInfo').textContent = `${nurseName} (${data.nurse.department})`;
                     document.getElementById('step2').classList.add('completed');
                     
                     if (deviceBarcode && nurseBarcode) {
@@ -232,6 +304,49 @@
         }
     });
 
+    function showToast(message) {
+        // Remove any existing toast
+        const existingToast = document.querySelector('.custom-toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+
+        // Create toast elements
+        const toast = document.createElement('div');
+        toast.className = 'custom-toast error';
+        
+        toast.innerHTML = `
+            <div class="icon">
+                <i class="fas fa-exclamation-circle"></i>
+            </div>
+            <div class="content">
+                <div class="title">Error</div>
+                <div class="message">${message}</div>
+            </div>
+            <div class="close-btn">
+                <i class="fas fa-times"></i>
+            </div>
+        `;
+
+        // Add toast to document
+        document.body.appendChild(toast);
+
+        // Add click handler for close button
+        const closeBtn = toast.querySelector('.close-btn');
+        closeBtn.addEventListener('click', () => {
+            toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+            setTimeout(() => toast.remove(), 300);
+        });
+
+        // Auto remove after 5 seconds
+        setTimeout(() => {
+            if (toast.parentElement) {
+                toast.style.animation = 'fadeOut 0.3s ease-out forwards';
+                setTimeout(() => toast.remove(), 300);
+            }
+        }, 5000);
+    }
+
     async function transferDevice() {
         try {
             const response = await fetch('/assignments/transfer', {
@@ -239,7 +354,7 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `device_barcode=${deviceBarcode}&to_nurse_barcode=${nurseBarcode}`
+                body: `device_barcode=${deviceBarcode}&nurse_barcode=${nurseBarcode}`
             });
             
             const data = await response.json();
@@ -248,16 +363,43 @@
                 document.getElementById('transferStatus').textContent = 'Successfully transferred';
                 document.getElementById('transferDetails').style.display = 'block';
                 
-                // Show success message and redirect after delay
-                alert('Device successfully transferred!');
-                setTimeout(() => {
-                    window.location.href = '/devices';
-                }, 2000);
+                // Update current assignment info after successful transfer
+                const deviceResponse = await fetch(`/devices/lookup/${deviceBarcode}`);
+                const deviceData = await deviceResponse.json();
+                if (deviceData.success) {
+                    document.getElementById('currentAssignmentInfo').textContent = 
+                        `Assigned to: ${deviceData.device.assigned_to}`;
+                }
+                
+                // Create success message with link
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'alert alert-success mt-4';
+                resultDiv.innerHTML = `
+                    ${data.message}<br>
+                    <a href="/assignments/transfer" class="btn btn-primary mt-2">
+                        Transfer Another Device
+                    </a>
+                `;
+                
+                // Insert the message after transferDetails
+                const transferDetails = document.getElementById('transferDetails');
+                transferDetails.parentNode.insertBefore(resultDiv, transferDetails.nextSibling);
+                
+                // Clear the form fields and results
+                deviceBarcode = null;
+                nurseBarcode = null;
+                document.getElementById('deviceResult').style.display = 'none';
+                document.getElementById('nurseResult').style.display = 'none';
+                
+                // Reset step indicators
+                document.getElementById('step1').classList.remove('active', 'completed');
+                document.getElementById('step2').classList.remove('active', 'completed');
+                document.getElementById('step1').classList.add('active');
             } else {
                 throw new Error(data.error || 'Failed to transfer device');
             }
         } catch (error) {
-            alert(`Error: ${error.message}`);
+            showToast(error.message);
         }
     }
 </script>

@@ -241,6 +241,9 @@ def lookup_by_barcode(barcode):
         device = db_service.get_device_by_barcode(barcode)
         
         if device:
+            # Add assigned_to_name to match what's displayed
+            device['assigned_to_name'] = device['assigned_to']
+            
             return jsonify({
                 'success': True,
                 'device': device

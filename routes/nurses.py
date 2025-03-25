@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
 from services.db_service import DBService
 from routes.auth import login_required
+from models.nurse import Nurse
 
 nurses_bp = Blueprint('nurses', __name__, url_prefix='/nurses')
 
@@ -64,18 +65,17 @@ def new():
 def create():
     """Create a new nurse"""
     try:
-        nurse_data = {
-            'first_name': request.form['first_name'],
-            'last_name': request.form['last_name'],
-            'badge_id': request.form['badge_id'],
-            'department': request.form['department'],
-            'shift': request.form['shift'],
-            'email': request.form.get('email'),
-            'phone': request.form.get('phone')
-        }
+        # Create a new Nurse object
+        nurse = Nurse(
+            badge_id=request.form['badge_id'],
+            first_name=request.form['first_name'],
+            last_name=request.form['last_name'],
+            department=request.form['department'],
+            shift=request.form['shift']
+        )
         
         db_service = DBService()
-        nurse_id = db_service.create_nurse(nurse_data)
+        nurse_id = db_service.create_nurse(nurse)
         
         flash('Nurse created successfully', 'success')
         return redirect(url_for('nurses.show', nurse_id=nurse_id))

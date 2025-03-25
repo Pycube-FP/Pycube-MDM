@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Nurse - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>Add New Nurse</h1>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <a href="{{ url_for('nurses.index') }}" class="btn btn-secondary">Back to List</a>
+        </div>
+    </div>
+    
+    <form method="POST" action="{{ url_for('nurses.create') }}">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="first_name" class="form-label">First Name</label>
+                    <input type="text" class="form-control" id="first_name" name="first_name" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="last_name" class="form-label">Last Name</label>
+                    <input type="text" class="form-control" id="last_name" name="last_name" required>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="badge_id" class="form-label">Badge ID</label>
+                    <input type="text" class="form-control" id="badge_id" name="badge_id" required>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="department" class="form-label">Department</label>
+                    <select class="form-select" id="department" name="department" required>
+                        <option value="">Select Department</option>
+                        <option value="Emergency Department">Emergency Department</option>
+                        <option value="ICU">ICU</option>
+                        <option value="Medical/Surgical Unit">Medical/Surgical Unit</option>
+                        <option value="Cardiology">Cardiology</option>
+                        <option value="Orthopedics">Orthopedics</option>
+                        <option value="Radiology">Radiology</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="shift" class="form-label">Shift</label>
+                    <select class="form-select" id="shift" name="shift" required>
+                        <option value="">Select Shift</option>
+                        <option value="Day">Day</option>
+                        <option value="Evening">Evening</option>
+                        <option value="Night">Night</option>
+                    </select>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email (Optional)</label>
+                    <input type="email" class="form-control" id="email" name="email">
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="mb-3">
+                    <label for="phone" class="form-label">Phone (Optional)</label>
+                    <input type="tel" class="form-control" id="phone" name="phone">
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-primary">Create Nurse</button>
+            <a href="{{ url_for('nurses.index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %} 

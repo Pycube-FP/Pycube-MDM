@@ -403,36 +403,34 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}" 
                            href="{{ url_for('dashboard.index') }}">
-                            <i class="fas fa-chart-line"></i> Dashboard
+                            Dashboard
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'devices.index' %}active{% endif %}"
                            href="{{ url_for('devices.index') }}">
-                            <i class="fas fa-mobile-alt"></i> Devices
+                            Devices
                         </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint.startswith('nurses.') %}active{% endif %}"
                            href="{{ url_for('nurses.index') }}">
-                            <i class="fas fa-user-nurse"></i> Nurses
+                            Nurses
                         </a>
                     </li>
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="assignmentDropdown" role="button" 
                            data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-exchange-alt"></i> Assignments
+                            Assignments
                         </a>
                         <ul class="dropdown-menu">
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('assignments.assign') }}">
-                                    <i class="fas fa-plus"></i>
                                     <span>New Assignment</span>
                                 </a>
                             </li>
                             <li>
                                 <a class="dropdown-item" href="{{ url_for('assignments.transfer') }}">
-                                    <i class="fas fa-sync"></i>
                                     <span>Transfer Device</span>
                                 </a>
                             </li>
@@ -441,7 +439,7 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'rfid.alerts' %}active{% endif %}"
                            href="{{ url_for('rfid.alerts') }}">
-                            <i class="fas fa-broadcast-tower"></i> RFID Alerts
+                            RFID Alerts
                         </a>
                     </li>
                 </ul>
@@ -450,13 +448,13 @@
                     {% if session.get('logged_in') %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.logout') }}">
-                            <i class="fas fa-sign-out-alt"></i> Logout
+                            Logout
                         </a>
                     </li>
                     {% else %}
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.login') }}">
-                            <i class="fas fa-sign-in-alt"></i> Login
+                            Login
                         </a>
                     </li>
                     {% endif %}
