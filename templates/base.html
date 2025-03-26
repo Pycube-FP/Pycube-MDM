@@ -48,11 +48,18 @@
             background-color: var(--navy-bg) !important;
             padding: 0.5rem 0;
         }
-        
+
+        .navbar .container {
+            max-width: 1400px;  /* Increased from default 1140px */
+            padding-left: 24px;
+            padding-right: 24px;
+        }
+
         .navbar-brand {
             display: flex;
             align-items: center;
             padding: 0;
+            margin-right: 32px;
         }
         
         .navbar-brand img {
@@ -63,7 +70,8 @@
         .navbar-dark .navbar-nav .nav-link {
             color: rgba(255, 255, 255, 0.9);
             font-weight: 500;
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 0.75rem;
+            white-space: nowrap;
         }
         
         .navbar-dark .navbar-nav .nav-link:hover {
@@ -403,6 +411,99 @@
         .toast-close:hover {
             opacity: 1;
         }
+
+        /* Profile styles */
+        .profile-dropdown {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            min-width: 160px;
+        }
+
+        .profile-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            transition: border-color 0.2s ease;
+        }
+
+        .profile-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .nav-item.dropdown:hover .profile-avatar {
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .profile-info {
+            text-align: left;
+        }
+
+        .dropdown-menu-end {
+            right: 0;
+            left: auto;
+            min-width: 0 !important;
+            width: 100%;
+            margin-top: 8px !important;
+            padding: 0 !important;
+        }
+
+        .dropdown-header {
+            padding: 12px;
+            font-size: var(--font-size-sm);
+            color: rgba(255, 255, 255, 0.7);
+            background: rgba(255, 255, 255, 0.05);
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .dropdown-item {
+            padding: 12px;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.2s ease;
+            background: transparent;
+            width: 100%;
+            margin: 0;
+        }
+
+        .dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: none;
+        }
+
+        .dropdown-item i {
+            font-size: 14px;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 767.98px) {
+            .profile-info {
+                display: none;
+            }
+            .profile-dropdown {
+                min-width: auto;
+            }
+            .dropdown-menu-end {
+                width: 200px;
+            }
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -452,14 +553,47 @@
                             RFID Alerts
                         </a>
                     </li>
+                    {% if session.get('role') == 'admin' %}
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'auth.list_users' %}active{% endif %}"
+                           href="{{ url_for('auth.list_users') }}">
+                            User Management
+                        </a>
+                    </li>
+                    {% endif %}
                 </ul>
                 
                 <ul class="navbar-nav">
                     {% if session.get('logged_in') %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.logout') }}">
-                            Logout
+                    <li class="nav-item dropdown">
+                        <a class="nav-link profile-dropdown" href="#" id="profileDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="profile-avatar">
+                                <img src="{{ url_for('static', filename='img/profile.jpg') }}" alt="Profile">
+                            </div>
+                            <div class="profile-info d-none d-md-block">
+                                <span class="d-block text-truncate" style="max-width: 100px;">
+                                    {%- if session.get('first_name') and session.get('first_name') != 'None' and session.get('first_name')|length > 0 -%}
+                                        {{ session.get('first_name') }}
+                                    {%- else -%}
+                                        {{ session.get('username') }}
+                                    {%- endif -%}
+                                </span>
+                            </div>
+                            <i class="fas fa-chevron-down ms-1" style="font-size: 12px; opacity: 0.7;"></i>
                         </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="profileDropdown">
+                            <li>
+                                <div class="dropdown-header">
+                                    {{ session.get('role', 'Role').title() }}
+                                </div>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                    <i class="fas fa-sign-out-alt"></i>
+                                    <span>Logout</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     {% else %}
                     <li class="nav-item">

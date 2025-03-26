@@ -19,6 +19,12 @@
         color: var(--alert-color);
         margin-left: 4px;
     }
+
+    .eol-warning {
+        color: var(--alert-color);
+        font-size: 0.9em;
+        margin-top: 4px;
+    }
 </style>
 {% endblock %}
 
@@ -97,6 +103,33 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="row">
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label for="eol_date">End of Life Date</label>
+                            <input type="date" class="form-control" id="eol_date" name="eol_date">
+                            <div class="eol-warning">Typically 5-6 years from purchase date</div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-6">
+                        <div class="form-group">
+                            <label for="eol_status">EOL Status</label>
+                            <select class="form-control" id="eol_status" name="eol_status">
+                                <option value="Active">Active</option>
+                                <option value="Warning">Warning</option>
+                                <option value="Critical">Critical</option>
+                                <option value="Expired">Expired</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="eol_notes">EOL Notes</label>
+                    <textarea class="form-control" id="eol_notes" name="eol_notes" rows="2"></textarea>
+                </div>
             </div>
         </div>
         
@@ -115,6 +148,8 @@
     document.addEventListener('DOMContentLoaded', function() {
         const scanBtn = document.getElementById('scanBtn');
         const rfidTagInput = document.getElementById('rfid_tag');
+        const purchaseDateInput = document.getElementById('purchase_date');
+        const eolDateInput = document.getElementById('eol_date');
         
         scanBtn.addEventListener('click', function() {
             // Simulate EPC scan - in a real app, this would connect to an RFID reader
@@ -122,6 +157,16 @@
             
             if (epcCode) {
                 rfidTagInput.value = epcCode;
+            }
+        });
+
+        // Auto-calculate EOL date when purchase date is set (5 years from purchase)
+        purchaseDateInput.addEventListener('change', function() {
+            if (this.value) {
+                const purchaseDate = new Date(this.value);
+                const eolDate = new Date(purchaseDate);
+                eolDate.setFullYear(eolDate.getFullYear() + 5);
+                eolDateInput.value = eolDate.toISOString().split('T')[0];
             }
         });
     });

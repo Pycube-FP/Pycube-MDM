@@ -67,10 +67,14 @@ def create():
         assigned_to = request.form.get('assigned_to') or None
         purchase_date_str = request.form.get('purchase_date')
         maintenance_date_str = request.form.get('last_maintenance_date')
+        eol_date_str = request.form.get('eol_date')
+        eol_status = request.form.get('eol_status', 'Active')
+        eol_notes = request.form.get('eol_notes')
         
         # Parse dates
         purchase_date = datetime.strptime(purchase_date_str, '%Y-%m-%d').date() if purchase_date_str else None
         last_maintenance_date = datetime.strptime(maintenance_date_str, '%Y-%m-%d').date() if maintenance_date_str else None
+        eol_date = datetime.strptime(eol_date_str, '%Y-%m-%d').date() if eol_date_str else None
         
         # Create device object
         device = Device(
@@ -82,7 +86,10 @@ def create():
             location_id=location_id,
             assigned_to=assigned_to,
             purchase_date=purchase_date,
-            last_maintenance_date=last_maintenance_date
+            last_maintenance_date=last_maintenance_date,
+            eol_date=eol_date,
+            eol_status=eol_status,
+            eol_notes=eol_notes
         )
         
         # Save to database
@@ -155,6 +162,9 @@ def update(device_id):
         assigned_to = request.form.get('assigned_to') if request.form.get('assigned_to') else existing_device['assigned_to']
         purchase_date_str = request.form.get('purchase_date')
         maintenance_date_str = request.form.get('last_maintenance_date')
+        eol_date_str = request.form.get('eol_date')
+        eol_status = request.form.get('eol_status', existing_device.get('eol_status', 'Active'))
+        eol_notes = request.form.get('eol_notes', existing_device.get('eol_notes'))
         
         # Parse dates, keeping existing values if not provided
         if purchase_date_str:
@@ -166,6 +176,11 @@ def update(device_id):
             last_maintenance_date = datetime.strptime(maintenance_date_str, '%Y-%m-%d').date()
         else:
             last_maintenance_date = existing_device['last_maintenance_date']
+
+        if eol_date_str:
+            eol_date = datetime.strptime(eol_date_str, '%Y-%m-%d').date()
+        else:
+            eol_date = existing_device.get('eol_date')
         
         # Create device object with updated values
         device = Device(
@@ -179,7 +194,10 @@ def update(device_id):
             location_id=location_id,
             assigned_to=assigned_to,
             purchase_date=purchase_date,
-            last_maintenance_date=last_maintenance_date
+            last_maintenance_date=last_maintenance_date,
+            eol_date=eol_date,
+            eol_status=eol_status,
+            eol_notes=eol_notes
         )
         
         # Update in database
@@ -303,4 +321,51 @@ def api_list():
         })
         
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/<device_id>/status', methods=['POST'])
+@login_required
+def update_status(device_id):
+    """Update device status"""
+    try:
+        db_service = DBService()
+        existing_device = db_service.get_device(device_id)
+        
+        if not existing_device:
+            return jsonify({'success': False, 'error': 'Device not found'}), 404
+        
+        # Get status from request
+        data = request.get_json()
+        new_status = data.get('status')
+        
+        if not new_status:
+            return jsonify({'success': False, 'error': 'Status not provided'}), 400
+        
+        # Create device object with updated status, preserving all other fields
+        device = Device(
+            id=device_id,
+            serial_number=existing_device['serial_number'],
+            model=existing_device['model'],
+            manufacturer=existing_device['manufacturer'],
+            rfid_tag=existing_device['rfid_tag'],
+            barcode=existing_device['barcode'],
+            status=new_status,
+            location_id=existing_device['location_id'],
+            assigned_to=existing_device['assigned_to'],
+            purchase_date=existing_device['purchase_date'],
+            last_maintenance_date=existing_device['last_maintenance_date'],
+            eol_date=existing_device.get('eol_date'),
+            eol_status=existing_device.get('eol_status', 'Active'),
+            eol_notes=existing_device.get('eol_notes')
+        )
+        
+        # Update in database
+        success = db_service.update_device(device)
+        
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'No changes made to device'}), 400
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500 

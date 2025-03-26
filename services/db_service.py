@@ -70,6 +70,9 @@ class DBService:
                     assigned_to VARCHAR(100),
                     purchase_date DATE,
                     last_maintenance_date DATE,
+                    eol_date DATE,
+                    eol_status ENUM('Active', 'Warning', 'Critical', 'Expired') DEFAULT 'Active',
+                    eol_notes TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )
@@ -136,6 +139,22 @@ class DBService:
                 )
             """)
 
+            # Create users table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id VARCHAR(36) PRIMARY KEY,
+                    username VARCHAR(100) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    role ENUM('admin', 'nurse') NOT NULL,
+                    first_name VARCHAR(100),
+                    last_name VARCHAR(100),
+                    nurse_id VARCHAR(36),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (nurse_id) REFERENCES nurses(id)
+                )
+            """)
+
             # Create rfid_alerts table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS rfid_alerts (
@@ -169,14 +188,16 @@ class DBService:
                 INSERT INTO devices (
                     id, serial_number, model, manufacturer, rfid_tag, barcode,
                     status, location_id, assigned_to, purchase_date, 
-                    last_maintenance_date, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    last_maintenance_date, eol_date, eol_status, eol_notes,
+                    created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             values = (
                 device.id, device.serial_number, device.model, device.manufacturer,
                 device.rfid_tag, device.barcode, device.status, device.location_id,
                 device.assigned_to, device.purchase_date, device.last_maintenance_date,
+                device.eol_date, device.eol_status, device.eol_notes,
                 device.created_at, device.updated_at
             )
             
@@ -1000,18 +1021,146 @@ class DBService:
             connection.close()
 
     def get_nurse_count(self):
-        """Get total count of nurses"""
+        """Get total number of nurses"""
         connection = self.get_connection()
         cursor = connection.cursor()
         
         try:
-            query = "SELECT COUNT(*) FROM nurses"
-            cursor.execute(query)
+            cursor.execute("SELECT COUNT(*) FROM nurses")
             count = cursor.fetchone()[0]
             return count
         except Exception as e:
             print(f"Error getting nurse count: {e}")
             return 0
+        finally:
+            cursor.close()
+            connection.close()
+
+    # User management methods
+    def create_user(self, user_data):
+        """Create a new user"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+                INSERT INTO users (
+                    id, username, password_hash, role, first_name,
+                    last_name, nurse_id, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            values = (
+                user_data['id'],
+                user_data['username'],
+                user_data['password_hash'],
+                user_data['role'],
+                user_data.get('first_name'),
+                user_data.get('last_name'),
+                user_data.get('nurse_id'),
+                datetime.now(),
+                datetime.now()
+            )
+            
+            cursor.execute(query, values)
+            connection.commit()
+            return user_data['id']
+        except Exception as e:
+            connection.rollback()
+            print(f"Error creating user: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+
+    def get_user_by_username(self, username):
+        """Get a user by username"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = "SELECT * FROM users WHERE username = %s"
+            cursor.execute(query, (username,))
+            user = cursor.fetchone()
+            return user
+        except Exception as e:
+            print(f"Error getting user by username: {e}")
+            return None
+        finally:
+            cursor.close()
+            connection.close()
+
+    def get_user(self, user_id):
+        """Get a user by ID"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = "SELECT * FROM users WHERE id = %s"
+            cursor.execute(query, (user_id,))
+            user = cursor.fetchone()
+            return user
+        except Exception as e:
+            print(f"Error getting user: {e}")
+            return None
+        finally:
+            cursor.close()
+            connection.close()
+
+    def update_user(self, user_data):
+        """Update a user's information"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+                UPDATE users SET
+                    username = %s,
+                    role = %s,
+                    first_name = %s,
+                    last_name = %s,
+                    nurse_id = %s,
+                    updated_at = %s
+                WHERE id = %s
+            """
+            
+            values = (
+                user_data['username'],
+                user_data['role'],
+                user_data.get('first_name'),
+                user_data.get('last_name'),
+                user_data.get('nurse_id'),
+                datetime.now(),
+                user_data['id']
+            )
+            
+            cursor.execute(query, values)
+            connection.commit()
+            return True
+        except Exception as e:
+            connection.rollback()
+            print(f"Error updating user: {e}")
+            return False
+        finally:
+            cursor.close()
+            connection.close()
+
+    def update_user_password(self, user_id, password_hash):
+        """Update a user's password"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = "UPDATE users SET password_hash = %s, updated_at = %s WHERE id = %s"
+            values = (password_hash, datetime.now(), user_id)
+            
+            cursor.execute(query, values)
+            connection.commit()
+            return True
+        except Exception as e:
+            connection.rollback()
+            print(f"Error updating user password: {e}")
+            return False
         finally:
             cursor.close()
             connection.close() 

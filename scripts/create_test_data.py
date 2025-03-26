@@ -12,6 +12,10 @@ from models.device import Device
 from models.nurse import Nurse
 from models.location import Location
 
+def format_date(date):
+    """Return the date object as is, since the database expects datetime objects"""
+    return date if date else None
+
 def create_test_data():
     """Create test data in the database"""
     db_service = DBService()
@@ -110,7 +114,8 @@ def create_test_data():
         except Exception as e:
             print(f"Error creating nurse {nurse.first_name} {nurse.last_name}: {e}")
     
-    # Create test devices (all in Available status)
+    # Create test devices with various EOL statuses
+    current_date = datetime.now()
     devices = [
         Device(
             serial_number="IP14-001",
@@ -120,8 +125,11 @@ def create_test_data():
             barcode="BC001",
             status="Available",
             location_id=location_ids[0],
-            purchase_date=datetime.now() - timedelta(days=30),
-            last_maintenance_date=datetime.now() - timedelta(days=7)
+            purchase_date=format_date(current_date - timedelta(days=365*2)),  # 2 years old
+            last_maintenance_date=format_date(current_date - timedelta(days=7)),
+            eol_date=format_date(current_date + timedelta(days=365)),  # 1 year until EOL
+            eol_status="Active",
+            eol_notes="Device in good condition, regular maintenance performed"
         ),
         Device(
             serial_number="IP14-002",
@@ -131,8 +139,11 @@ def create_test_data():
             barcode="BC002",
             status="Available",
             location_id=location_ids[1],
-            purchase_date=datetime.now() - timedelta(days=30),
-            last_maintenance_date=datetime.now() - timedelta(days=7)
+            purchase_date=format_date(current_date - timedelta(days=365*3)),  # 3 years old
+            last_maintenance_date=format_date(current_date - timedelta(days=30)),
+            eol_date=format_date(current_date + timedelta(days=90)),  # 90 days until EOL
+            eol_status="Warning",
+            eol_notes="Approaching end of life, plan for replacement"
         ),
         Device(
             serial_number="IP14-003",
@@ -142,8 +153,11 @@ def create_test_data():
             barcode="BC003",
             status="Available",
             location_id=location_ids[2],
-            purchase_date=datetime.now() - timedelta(days=30),
-            last_maintenance_date=datetime.now() - timedelta(days=7)
+            purchase_date=format_date(current_date - timedelta(days=365*3.5)),  # 3.5 years old
+            last_maintenance_date=format_date(current_date - timedelta(days=60)),
+            eol_date=format_date(current_date + timedelta(days=30)),  # 30 days until EOL
+            eol_status="Critical",
+            eol_notes="Critical: Device needs immediate replacement planning"
         ),
         Device(
             serial_number="IP14-004",
@@ -153,19 +167,25 @@ def create_test_data():
             barcode="BC004",
             status="Available",
             location_id=location_ids[0],
-            purchase_date=datetime.now() - timedelta(days=30),
-            last_maintenance_date=datetime.now() - timedelta(days=7)
+            purchase_date=format_date(current_date - timedelta(days=365*4)),  # 4 years old
+            last_maintenance_date=format_date(current_date - timedelta(days=90)),
+            eol_date=format_date(current_date - timedelta(days=30)),  # 30 days past EOL
+            eol_status="Expired",
+            eol_notes="Device has exceeded its end-of-life date, requires immediate replacement"
         ),
         Device(
             serial_number="IP14-005",
-            model="iPhone 14",
+            model="iPhone 15",  # Newer model
             manufacturer="Apple",
             rfid_tag="RFID005",
             barcode="BC005",
             status="Available",
             location_id=location_ids[1],
-            purchase_date=datetime.now() - timedelta(days=30),
-            last_maintenance_date=datetime.now() - timedelta(days=7)
+            purchase_date=format_date(current_date - timedelta(days=30)),  # Just 30 days old
+            last_maintenance_date=format_date(current_date - timedelta(days=7)),
+            eol_date=format_date(current_date + timedelta(days=365*3)),  # 3 years until EOL
+            eol_status="Active",
+            eol_notes="New device, recently deployed"
         )
     ]
     

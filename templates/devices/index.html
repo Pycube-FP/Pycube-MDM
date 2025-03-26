@@ -68,9 +68,17 @@
                 <td>{{ device.serial_number }}</td>
                 <td>{{ device.assigned_to or 'Unassigned' }}</td>
                 <td>
-                    <a href="{{ url_for('devices.show', device_id=device.id) }}" class="btn btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">View</a>
-                    <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Edit</a>
-                    <button class="btn btn-danger delete-device" data-id="{{ device.id }}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Delete</button>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('devices.show', device_id=device.id) }}" class="btn btn-sm btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-sm btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-pencil"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger delete-device" data-id="{{ device.id }}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
             {% else %}
@@ -250,9 +258,17 @@
                 <td>${device.serial_number}</td>
                 <td>${device.assigned_to || 'Unassigned'}</td>
                 <td>
-                    <a href="/devices/${device.id}" class="btn btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">View</a>
-                    <a href="/devices/${device.id}/edit" class="btn btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Edit</a>
-                    <button class="btn btn-danger delete-device" data-id="${device.id}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">Delete</button>
+                    <div class="d-flex gap-2">
+                        <a href="/devices/${device.id}" class="btn btn-sm btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="/devices/${device.id}/edit" class="btn btn-sm btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-pencil"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger delete-device" data-id="${device.id}" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
                 </td>
             </tr>
         `).join('');

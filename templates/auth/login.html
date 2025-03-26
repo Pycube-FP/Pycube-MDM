@@ -167,6 +167,31 @@
         .flash-info {
             background-color: #17a2b8;
         }
+
+        .role-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .role-tab {
+            padding: 1rem 2rem;
+            cursor: pointer;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 2px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .role-tab.active {
+            color: var(--blue-accent);
+            border-bottom-color: var(--blue-accent);
+        }
+
+        .role-tab:hover {
+            color: var(--blue-accent);
+        }
     </style>
 </head>
 <body>
@@ -177,8 +202,11 @@
             </div>
             
             <div class="login-form">
-                <h2 class="form-title">Administrator Login</h2>
-                
+                <div class="role-tabs">
+                    <div class="role-tab active" onclick="switchRole('admin')">Administrator</div>
+                    <div class="role-tab" onclick="switchRole('nurse')">Nurse</div>
+                </div>
+
                 <form method="POST" action="{{ url_for('auth.login') }}">
                     <div class="form-group">
                         <label for="username">Username</label>
@@ -211,5 +239,30 @@
             </div>
         {% endif %}
     {% endwith %}
+
+    <script>
+        function switchRole(role) {
+            const tabs = document.querySelectorAll('.role-tab');
+            tabs.forEach(tab => {
+                tab.classList.remove('active');
+                if (tab.textContent.toLowerCase().includes(role)) {
+                    tab.classList.add('active');
+                }
+            });
+
+            // Update form title based on role
+            const formTitle = document.querySelector('.form-title');
+            formTitle.textContent = role === 'admin' ? 'Administrator Login' : 'Nurse Login';
+        }
+
+        // Auto-hide flash messages after 5 seconds
+        setTimeout(() => {
+            const flashMessages = document.querySelectorAll('.flash-message');
+            flashMessages.forEach(message => {
+                message.style.opacity = '0';
+                setTimeout(() => message.remove(), 300);
+            });
+        }, 5000);
+    </script>
 </body>
 </html> 

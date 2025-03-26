@@ -2,6 +2,22 @@
 
 {% block title %}Device Details - Pycube MDM{% endblock %}
 
+{% block extra_head %}
+<style>
+    .eol-status {
+        display: inline-block;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-weight: 500;
+        font-size: 0.9em;
+    }
+    .eol-active { background-color: #d1fae5; color: #065f46; }
+    .eol-warning { background-color: #fef3c7; color: #92400e; }
+    .eol-critical { background-color: #fee2e2; color: #991b1b; }
+    .eol-expired { background-color: #fee2e2; color: #991b1b; }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
@@ -43,17 +59,43 @@
                 </tr>
                 <tr>
                     <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Purchase Date:</td>
-                    <td>{{ device.purchase_date or 'Unknown' }}</td>
+                    <td>{{ device.purchase_date.strftime('%m/%d/%Y') if device.purchase_date else 'Unknown' }}</td>
                 </tr>
                 <tr>
                     <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Last Maintenance:</td>
-                    <td>{{ device.last_maintenance_date or 'No maintenance records' }}</td>
+                    <td>{{ device.last_maintenance_date.strftime('%m/%d/%Y') if device.last_maintenance_date else 'No maintenance records' }}</td>
                 </tr>
                 <tr>
                     <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Added On:</td>
-                    <td>{{ device.created_at.strftime('%Y-%m-%d %H:%M:%S') if device.created_at else 'Unknown' }}</td>
+                    <td>{{ device.created_at.strftime('%m/%d/%Y %I:%M %p') if device.created_at else 'Unknown' }}</td>
                 </tr>
             </table>
+
+            <div style="margin-top: var(--spacing-lg); padding: var(--spacing-md); background-color: var(--primary-50); border-radius: var(--border-radius-md);">
+                <h4 style="margin-bottom: var(--spacing-md);">End of Life Information</h4>
+                <table style="width: 100%;">
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Date:</td>
+                        <td>{{ device.eol_date.strftime('%m/%d/%Y') if device.eol_date else 'Not set' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Status:</td>
+                        <td>
+                            {% if device.eol_status %}
+                            <span class="eol-status eol-{{ device.eol_status.lower() }}">{{ device.eol_status }}</span>
+                            {% else %}
+                            Not set
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% if device.eol_notes %}
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Notes:</td>
+                        <td>{{ device.eol_notes }}</td>
+                    </tr>
+                    {% endif %}
+                </table>
+            </div>
         </div>
         
         <div class="col-6">
@@ -96,9 +138,9 @@
             <tr>
                 <td>{{ assignment.nurse_name }}</td>
                 <td>{{ assignment.department }}</td>
-                <td>{{ assignment.created_at.strftime('%Y-%m-%d %H:%M:%S') if assignment.created_at else 'Unknown' }}</td>
+                <td>{{ assignment.created_at.strftime('%m/%d/%Y %I:%M %p') if assignment.created_at else 'Unknown' }}</td>
                 <td>{{ assignment.status }}</td>
-                <td>{{ assignment.returned_at.strftime('%Y-%m-%d %H:%M:%S') if assignment.returned_at else '-' }}</td>
+                <td>{{ assignment.returned_at.strftime('%m/%d/%Y %I:%M %p') if assignment.returned_at else '-' }}</td>
             </tr>
             {% endfor %}
         </tbody>
@@ -123,7 +165,7 @@
         <tbody>
             {% for movement in movements %}
             <tr>
-                <td>{{ movement.timestamp.strftime('%Y-%m-%d %H:%M:%S') if movement.timestamp else 'Unknown' }}</td>
+                <td>{{ movement.timestamp.strftime('%m/%d/%Y %I:%M %p') if movement.timestamp else 'Unknown' }}</td>
                 <td>{{ movement.location_name or 'Unknown' }}</td>
                 <td>{{ movement.reader_id or 'Unknown' }}</td>
             </tr>
@@ -216,31 +258,26 @@
         {% endif %}
         
         function updateDeviceStatus(status) {
-            // Create form for status update and submit
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = "{{ url_for('devices.update', device_id=device.id) }}";
-            
-            // Copy all existing form values
-            {% for key, value in device.items() %}
-            {% if key not in ['created_at', 'updated_at'] and value is not none %}
-            const input{{ loop.index }} = document.createElement('input');
-            input{{ loop.index }}.type = 'hidden';
-            input{{ loop.index }}.name = '{{ key }}';
-            input{{ loop.index }}.value = '{{ value }}';
-            form.appendChild(input{{ loop.index }});
-            {% endif %}
-            {% endfor %}
-            
-            // Set the new status
-            const statusInput = document.createElement('input');
-            statusInput.type = 'hidden';
-            statusInput.name = 'status';
-            statusInput.value = status;
-            form.appendChild(statusInput);
-            
-            document.body.appendChild(form);
-            form.submit();
+            const url = "{{ url_for('devices.update_status', device_id=device.id) }}";
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ status: status })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.reload();
+                } else {
+                    alert(data.error || 'Error updating device status');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error updating device status');
+            });
         }
     });
 </script>

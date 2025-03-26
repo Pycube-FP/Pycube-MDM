@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Create New User</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('auth.create_user') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <select class="form-select" id="role" name="role" required onchange="toggleNurseFields()">
+                                <option value="admin">Administrator</option>
+                                <option value="nurse">Nurse</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" required>
+                        </div>
+                        
+                        <div id="nurse-fields" style="display: none;">
+                            <div class="mb-3">
+                                <label for="nurse_id" class="form-label">Link to Existing Nurse Profile</label>
+                                <select class="form-select" id="nurse_id" name="nurse_id">
+                                    <option value="">Select a nurse profile...</option>
+                                    {% for nurse in nurses %}
+                                    <option value="{{ nurse.id }}">
+                                        Badge: {{ nurse.badge_id }} - {{ nurse.first_name }} {{ nurse.last_name }} ({{ nurse.department }})
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                                <small class="form-text text-muted">
+                                    Select the nurse profile to link to this user account. The badge ID and department information will be automatically associated.
+                                </small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Create User</button>
+                            <a href="{{ url_for('dashboard.index') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleNurseFields() {
+    const role = document.getElementById('role').value;
+    const nurseFields = document.getElementById('nurse-fields');
+    const nurseId = document.getElementById('nurse_id');
+    
+    if (role === 'nurse') {
+        nurseFields.style.display = 'block';
+        nurseId.required = true;
+    } else {
+        nurseFields.style.display = 'none';
+        nurseId.required = false;
+        nurseId.value = '';
+    }
+}
+
+// Initialize the form state
+document.addEventListener('DOMContentLoaded', toggleNurseFields);
+</script>
+{% endblock %} 

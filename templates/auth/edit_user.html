@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h2 class="mb-0">Edit User</h2>
+                    <a href="{{ url_for('auth.list_users') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Back to Users
+                    </a>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" class="form-control" id="username" name="username" 
+                                   value="{{ user.username }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="password" class="form-label">
+                                New Password 
+                                <small class="text-muted">(leave blank to keep current)</small>
+                            </label>
+                            <input type="password" class="form-control" id="password" name="password">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Role</label>
+                            <select class="form-select" id="role" name="role" required onchange="toggleNurseFields()">
+                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Administrator</option>
+                                <option value="nurse" {% if user.role == 'nurse' %}selected{% endif %}>Nurse</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" class="form-control" id="first_name" name="first_name" 
+                                   value="{{ user.first_name }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" class="form-control" id="last_name" name="last_name" 
+                                   value="{{ user.last_name }}" required>
+                        </div>
+                        
+                        <div id="nurse-fields" style="display: none;">
+                            <div class="mb-3">
+                                <label for="nurse_id" class="form-label">Nurse ID</label>
+                                <select class="form-select" id="nurse_id" name="nurse_id">
+                                    <option value="">Select a nurse...</option>
+                                    {% for nurse in nurses %}
+                                    <option value="{{ nurse.id }}" {% if nurse.id == user.nurse_id %}selected{% endif %}>
+                                        {{ nurse.badge_id }} - {{ nurse.first_name }} {{ nurse.last_name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Save Changes</button>
+                            <a href="{{ url_for('auth.list_users') }}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleNurseFields() {
+    const role = document.getElementById('role').value;
+    const nurseFields = document.getElementById('nurse-fields');
+    const nurseId = document.getElementById('nurse_id');
+    
+    if (role === 'nurse') {
+        nurseFields.style.display = 'block';
+        nurseId.required = true;
+    } else {
+        nurseFields.style.display = 'none';
+        nurseId.required = false;
+    }
+}
+
+// Initialize the form state
+document.addEventListener('DOMContentLoaded', toggleNurseFields);
+</script>
+{% endblock %} 

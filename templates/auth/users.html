@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>User Management</h1>
+        <a href="{{ url_for('auth.create_user') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New User
+        </a>
+    </div>
+
+    {% if users %}
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>Name</th>
+                    <th>Details</th>
+                    <th>Created At</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>{{ user.username }}</td>
+                    <td>
+                        <span class="badge {% if user.role == 'admin' %}bg-danger{% else %}bg-primary{% endif %}">
+                            {{ user.role|title }}
+                        </span>
+                    </td>
+                    <td>{{ user.first_name }} {{ user.last_name }}</td>
+                    <td>
+                        {% if user.role == 'nurse' %}
+                            {% if user.badge_id %}
+                                <span class="text-muted">Badge: {{ user.badge_id }}</span><br>
+                                <span class="text-muted">Dept: {{ user.department }}</span>
+                            {% else %}
+                                <span class="text-warning">No nurse profile linked</span>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>{{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td>
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('auth.edit_user', user_id=user.id) }}" class="btn btn-sm btn-info" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ url_for('auth.edit_user', user_id=user.id) }}" class="btn btn-sm btn-warning" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                                <i class="fas fa-pencil"></i>
+                            </a>
+                            {% if user.role != 'admin' or session.get('user_id') != user.id %}
+                            <button class="btn btn-sm btn-danger" onclick="confirmDelete('{{ user.id }}', '{{ user.username }}')" style="padding: 0.2rem 0.5rem; font-size: 0.875rem;">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-body text-center">No users found. <a href="{{ url_for('auth.create_user') }}">Create one now</a>.</p>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete user <strong id="deleteUserName"></strong>?
+                This action cannot be undone.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(userId, username) {
+    const modal = document.getElementById('deleteModal');
+    const deleteForm = document.getElementById('deleteForm');
+    const deleteUserName = document.getElementById('deleteUserName');
+    
+    deleteForm.action = "{{ url_for('auth.delete_user', user_id='') }}" + userId;
+    deleteUserName.textContent = username;
+    
+    new bootstrap.Modal(modal).show();
+}
+</script>
+{% endblock %} 

@@ -8,6 +8,7 @@ class Device:
     def __init__(self, id=None, serial_number=None, model=None, manufacturer=None, 
                  rfid_tag=None, barcode=None, status="Available", location_id=None, 
                  assigned_to=None, purchase_date=None, last_maintenance_date=None,
+                 eol_date=None, eol_status="Active", eol_notes=None,
                  created_at=None, updated_at=None):
         self.id = id or str(uuid.uuid4())
         self.serial_number = serial_number
@@ -20,6 +21,9 @@ class Device:
         self.assigned_to = assigned_to
         self.purchase_date = purchase_date
         self.last_maintenance_date = last_maintenance_date
+        self.eol_date = eol_date
+        self.eol_status = eol_status  # Active, Warning, Critical, Expired
+        self.eol_notes = eol_notes
         self.created_at = created_at or datetime.now()
         self.updated_at = updated_at or datetime.now()
     
@@ -48,6 +52,9 @@ class Device:
             assigned_to=data.get('assigned_to'),
             purchase_date=data.get('purchase_date'),
             last_maintenance_date=data.get('last_maintenance_date'),
+            eol_date=data.get('eol_date'),
+            eol_status=data.get('eol_status', 'Active'),
+            eol_notes=data.get('eol_notes'),
             created_at=data.get('created_at'),
             updated_at=data.get('updated_at')
         )
@@ -67,6 +74,9 @@ class Device:
             'assigned_to': self.assigned_to,
             'purchase_date': self.purchase_date,
             'last_maintenance_date': self.last_maintenance_date,
+            'eol_date': self.eol_date,
+            'eol_status': self.eol_status,
+            'eol_notes': self.eol_notes,
             'created_at': self.created_at,
             'updated_at': self.updated_at
         }

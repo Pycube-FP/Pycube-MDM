@@ -67,7 +67,10 @@ def assign_device():
             location_id=device['location_id'],
             assigned_to=nurse_name,  # Store the nurse's full name instead of ID
             purchase_date=device['purchase_date'],
-            last_maintenance_date=device['last_maintenance_date']
+            last_maintenance_date=device['last_maintenance_date'],
+            eol_date=device.get('eol_date'),
+            eol_status=device.get('eol_status', 'Active'),
+            eol_notes=device.get('eol_notes')
         )
         
         # Save assignment and update device
@@ -165,7 +168,10 @@ def transfer_device():
             location_id=device['location_id'],
             assigned_to=f"{to_nurse['first_name']} {to_nurse['last_name']}",
             purchase_date=device['purchase_date'],
-            last_maintenance_date=device['last_maintenance_date']
+            last_maintenance_date=device['last_maintenance_date'],
+            eol_date=device.get('eol_date'),
+            eol_status=device.get('eol_status', 'Active'),
+            eol_notes=device.get('eol_notes')
         )
         
         # Save changes
@@ -216,8 +222,23 @@ def return_device():
         db_service.update_device_assignment(current_assignment)
         
         # Update device
-        device.status = 'Available'
-        device.assigned_to = None
+        device = Device(
+            id=device['id'],
+            serial_number=device['serial_number'],
+            model=device['model'],
+            manufacturer=device['manufacturer'],
+            rfid_tag=device['rfid_tag'],
+            barcode=device['barcode'],
+            status='Available',
+            location_id=device['location_id'],
+            assigned_to=None,
+            purchase_date=device['purchase_date'],
+            last_maintenance_date=device['last_maintenance_date'],
+            eol_date=device.get('eol_date'),
+            eol_status=device.get('eol_status', 'Active'),
+            eol_notes=device.get('eol_notes')
+        )
+        
         db_service.update_device(device)
         
         return jsonify({
