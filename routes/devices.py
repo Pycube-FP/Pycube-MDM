@@ -1,8 +1,9 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from services.db_service import DBService
 from models.device import Device
-from routes.auth import login_required
+from routes.auth import login_required, role_required
 from datetime import datetime
+import uuid
 
 devices_bp = Blueprint('devices', __name__, url_prefix='/devices')
 
@@ -279,48 +280,163 @@ def lookup_by_barcode(barcode):
         }), 500
 
 @devices_bp.route('/api/list')
-@login_required
-def api_list():
-    """API endpoint for fetching paginated devices data"""
+def api_list_devices():
+    """API endpoint to get all devices"""
     try:
-        status_filter = request.args.get('status')
-        page = int(request.args.get('page', 1))
-        limit = 10
-        offset = (page - 1) * limit
+        db_service = DBService()
+        devices = db_service.get_all_devices()
         
-        # Get sort parameters from request
-        sort_by = request.args.get('sort', None)
-        sort_dir = request.args.get('dir', 'asc')
+        # Convert devices to JSON format
+        devices_json = []
+        for device in devices:
+            devices_json.append({
+                'id': device['id'],
+                'serialNumber': device['serial_number'],
+                'model': device['model'],
+                'manufacturer': device['manufacturer'],
+                'rfidTag': device['rfid_tag'],
+                'barcode': device['barcode'],
+                'status': device['status'],
+                'assignedTo': device['assigned_to'],
+                'locationId': device['location_id'],
+                'eolDate': device['eol_date'].isoformat() if device['eol_date'] else None,
+                'eolStatus': device['eol_status']
+            })
+        
+        return jsonify(devices_json)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/<device_id>/assign', methods=['POST'])
+def api_assign_device(device_id):
+    """API endpoint to assign a device"""
+    try:
+        data = request.get_json()
+        nurse_id = data.get('nurse_id')
+        
+        if not nurse_id:
+            return jsonify({'error': 'nurse_id is required'}), 400
         
         db_service = DBService()
         
-        # Get total count and calculate total pages
-        total_count = db_service.get_device_count(status_filter)
-        total_pages = (total_count + limit - 1) // limit  # Ceiling division
+        # First check if nurse exists
+        nurse = db_service.get_nurse(nurse_id)
+        if not nurse:
+            return jsonify({'error': 'Nurse not found'}), 404
+            
+        device = db_service.get_device(device_id)
+        if not device:
+            return jsonify({'error': 'Device not found'}), 404
+            
+        if device['assigned_to']:
+            return jsonify({'error': 'Device is already assigned'}), 400
+            
+        # Generate a UUID for the assignment
+        assignment_id = str(uuid.uuid4())
         
-        devices = db_service.get_all_devices(
-            limit=limit, 
-            offset=offset, 
-            status=status_filter,
-            sort_by=sort_by,
-            sort_dir=sort_dir
+        # Create assignment dictionary
+        assignment = {
+            'id': assignment_id,
+            'device_id': device_id,
+            'nurse_id': nurse_id,
+            'assigned_at': datetime.now(),
+            'returned_at': None,
+            'status': 'Active',
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        # Update device status and create assignment
+        db_service.update_device_status(device_id, 'In-Use')
+        db_service.create_device_assignment(assignment)
+        
+        # Update device's assigned_to field
+        device_update = Device(
+            id=device_id,
+            serial_number=device['serial_number'],
+            model=device['model'],
+            manufacturer=device['manufacturer'],
+            rfid_tag=device['rfid_tag'],
+            barcode=device['barcode'],
+            status='In-Use',
+            location_id=device['location_id'],
+            assigned_to=nurse_id
         )
-        
-        # Convert datetime objects to strings for JSON serialization
-        for device in devices:
-            if device.get('created_at'):
-                device['created_at'] = device['created_at'].strftime('%Y-%m-%d %H:%M:%S')
-            if device.get('updated_at'):
-                device['updated_at'] = device['updated_at'].strftime('%Y-%m-%d %H:%M:%S')
+        db_service.update_device(device_update)
         
         return jsonify({
-            'devices': devices,
-            'current_page': page,
-            'total_pages': total_pages,
-            'total_count': total_count
+            'success': True,
+            'assignment': {
+                'id': assignment_id,
+                'deviceId': device_id,
+                'nurseId': nurse_id,
+                'assignedAt': assignment['assigned_at'].isoformat(),
+                'status': assignment['status']
+            }
         })
         
     except Exception as e:
+        print(f"Error in api_assign_device: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/<device_id>/transfer', methods=['POST'])
+def api_transfer_device(device_id):
+    """API endpoint to transfer a device"""
+    try:
+        data = request.get_json()
+        from_nurse_id = data.get('from_nurse_id')
+        to_nurse_id = data.get('to_nurse_id')
+        
+        if not from_nurse_id or not to_nurse_id:
+            return jsonify({'error': 'Both from_nurse_id and to_nurse_id are required'}), 400
+            
+        db_service = DBService()
+        device = db_service.get_device(device_id)
+        
+        if not device:
+            return jsonify({'error': 'Device not found'}), 404
+            
+        if not device['assigned_to']:
+            return jsonify({'error': 'Device is not currently assigned'}), 400
+            
+        # Close current assignment
+        current_assignment = db_service.get_active_assignment(device_id)
+        if current_assignment:
+            update_data = {
+                'id': current_assignment['id'],
+                'status': 'Transferred',
+                'returned_at': datetime.now()
+            }
+            db_service.update_device_assignment(update_data)
+        
+        # Create new assignment
+        new_assignment_id = str(uuid.uuid4())
+        new_assignment = {
+            'id': new_assignment_id,
+            'device_id': device_id,
+            'nurse_id': to_nurse_id,
+            'assigned_at': datetime.now(),
+            'returned_at': None,
+            'status': 'Active',
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        db_service.create_device_assignment(new_assignment)
+        
+        return jsonify({
+            'success': True,
+            'assignment': {
+                'id': new_assignment_id,
+                'deviceId': device_id,
+                'nurseId': to_nurse_id,
+                'assignedAt': new_assignment['assigned_at'].isoformat(),
+                'status': new_assignment['status']
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in api_transfer_device: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
 @devices_bp.route('/<device_id>/status', methods=['POST'])
@@ -368,4 +484,168 @@ def update_status(device_id):
             return jsonify({'success': False, 'error': 'No changes made to device'}), 400
             
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500 
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@devices_bp.route('/api/nurses')
+def api_list_nurses():
+    """API endpoint to get all nurses"""
+    try:
+        db_service = DBService()
+        nurses = db_service.get_all_nurses()
+        
+        # Convert nurses to JSON format
+        nurses_json = []
+        for nurse in nurses:
+            nurses_json.append({
+                'id': nurse['id'],
+                'badgeId': nurse['badge_id'],
+                'firstName': nurse['first_name'],
+                'lastName': nurse['last_name'],
+                'department': nurse['department'],
+                'shift': nurse['shift']
+            })
+        
+        return jsonify(nurses_json)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/nurses/<nurse_id>')
+def api_get_nurse(nurse_id):
+    """API endpoint to get a specific nurse"""
+    try:
+        db_service = DBService()
+        nurse = db_service.get_nurse(nurse_id)
+        
+        if not nurse:
+            return jsonify({'error': 'Nurse not found'}), 404
+            
+        return jsonify({
+            'id': nurse['id'],
+            'badgeId': nurse['badge_id'],
+            'firstName': nurse['first_name'],
+            'lastName': nurse['last_name'],
+            'department': nurse['department'],
+            'shift': nurse['shift']
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/nurses', methods=['POST'])
+def api_create_nurse():
+    """API endpoint to create a new nurse"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+            
+        required_fields = ['badgeId', 'firstName', 'lastName', 'department', 'shift']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({'error': f'{field} is required'}), 400
+        
+        # Generate a UUID for the new nurse
+        nurse_id = str(uuid.uuid4())
+        
+        nurse_data = {
+            'id': nurse_id,
+            'badge_id': data['badgeId'],
+            'first_name': data['firstName'],
+            'last_name': data['lastName'],
+            'department': data['department'],
+            'shift': data['shift'],
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        db_service = DBService()
+        db_service.create_user(nurse_data)
+        
+        return jsonify({
+            'success': True,
+            'nurse': {
+                'id': nurse_id,
+                'badgeId': data['badgeId'],
+                'firstName': data['firstName'],
+                'lastName': data['lastName'],
+                'department': data['department'],
+                'shift': data['shift']
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/assign', methods=['POST'])
+def api_assign_device_by_barcode():
+    """API endpoint to assign a device using barcode"""
+    try:
+        data = request.get_json()
+        device_barcode = data.get('device_barcode')
+        nurse_badge_id = data.get('nurse_badge_id')
+        
+        if not device_barcode or not nurse_badge_id:
+            return jsonify({'error': 'Both device_barcode and nurse_badge_id are required'}), 400
+            
+        db_service = DBService()
+        
+        # First get the device by barcode
+        device = db_service.get_device_by_barcode(device_barcode)
+        if not device:
+            return jsonify({'error': 'Device not found'}), 404
+            
+        # Then get the nurse by badge ID
+        nurse = db_service.get_nurse_by_badge(nurse_badge_id)
+        if not nurse:
+            return jsonify({'error': 'Nurse not found'}), 404
+            
+        if device['assigned_to']:
+            return jsonify({'error': 'Device is already assigned'}), 400
+            
+        # Generate a UUID for the assignment
+        assignment_id = str(uuid.uuid4())
+        
+        # Create assignment dictionary
+        assignment = {
+            'id': assignment_id,
+            'device_id': device['id'],
+            'nurse_id': nurse['id'],
+            'assigned_at': datetime.now(),
+            'returned_at': None,
+            'status': 'Active',
+            'created_at': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        # Update device status and create assignment
+        db_service.update_device_status(device['id'], 'In-Use')
+        db_service.create_device_assignment(assignment)
+        
+        # Update device's assigned_to field
+        device_update = Device(
+            id=device['id'],
+            serial_number=device['serial_number'],
+            model=device['model'],
+            manufacturer=device['manufacturer'],
+            rfid_tag=device['rfid_tag'],
+            barcode=device['barcode'],
+            status='In-Use',
+            location_id=device['location_id'],
+            assigned_to=nurse['id']
+        )
+        db_service.update_device(device_update)
+        
+        return jsonify({
+            'success': True,
+            'assignment': {
+                'id': assignment_id,
+                'deviceId': device['id'],
+                'nurseId': nurse['id'],
+                'assignedAt': assignment['assigned_at'].isoformat(),
+                'status': assignment['status']
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error in api_assign_device_by_barcode: {str(e)}")
+        return jsonify({'error': str(e)}), 500 

@@ -671,15 +671,33 @@ class DBService:
                 ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
             
-            values = (
-                assignment.id, assignment.device_id, assignment.nurse_id,
-                assignment.assigned_at, assignment.returned_at, assignment.status,
-                assignment.created_at, assignment.updated_at
-            )
+            # Handle both dictionary and object input
+            if isinstance(assignment, dict):
+                values = (
+                    assignment['id'],
+                    assignment['device_id'],
+                    assignment['nurse_id'],
+                    assignment['assigned_at'],
+                    assignment.get('returned_at'),
+                    assignment['status'],
+                    assignment['created_at'],
+                    assignment['updated_at']
+                )
+            else:
+                values = (
+                    assignment.id,
+                    assignment.device_id,
+                    assignment.nurse_id,
+                    assignment.assigned_at,
+                    assignment.returned_at,
+                    assignment.status,
+                    assignment.created_at,
+                    assignment.updated_at
+                )
             
             cursor.execute(query, values)
             connection.commit()
-            return assignment.id
+            return assignment['id'] if isinstance(assignment, dict) else assignment.id
         except Exception as e:
             connection.rollback()
             print(f"Error creating device assignment: {e}")

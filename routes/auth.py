@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from functools import wraps
 from services.db_service import DBService
 from models.user import User
@@ -85,6 +85,49 @@ def logout():
     session.clear()
     flash('You have been logged out', 'info')
     return redirect(url_for('auth.login'))
+
+@auth_bp.route('/api/login', methods=['POST'])
+def api_login():
+    """Handle API login requests"""
+    if not request.is_json:
+        return jsonify({
+            'success': False,
+            'message': 'Content-Type must be application/json'
+        }), 400
+    
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({
+            'success': False,
+            'message': 'Username and password are required'
+        }), 400
+    
+    db_service = DBService()
+    user_data = db_service.get_user_by_username(username)
+    
+    if user_data:
+        user = User.from_dict(user_data)
+        if user.check_password(password):
+            return jsonify({
+                'success': True,
+                'message': 'Login successful',
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
+                    'firstName': user_data.get('first_name'),
+                    'lastName': user_data.get('last_name'),
+                    'role': user.role,
+                    'nurseId': user_data.get('nurse_id')
+                }
+            })
+    
+    return jsonify({
+        'success': False,
+        'message': 'Invalid username or password'
+    }), 401
 
 # Admin-only route for user management
 @auth_bp.route('/users/create', methods=['GET', 'POST'])
