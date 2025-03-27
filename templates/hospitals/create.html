@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Add New Hospital - Pycube MDM{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-control {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    label {
+        display: block;
+        margin-bottom: var(--spacing-xs);
+        font-weight: 500;
+    }
+    
+    .required::after {
+        content: "*";
+        color: var(--alert-color);
+        margin-left: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card p-4">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1 class="mb-0">Add New Hospital</h1>
+            <p class="text-muted mb-4">Create a new hospital in the system</p>
+        </div>
+        <a href="{{ url_for('hospitals.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Hospitals
+        </a>
+    </div>
+    
+    <form method="POST" class="needs-validation" novalidate>
+        <div class="row">
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="name" class="required">Hospital Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                    <div class="invalid-feedback">
+                        Please provide a hospital name.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="code" class="required">Hospital Code</label>
+                    <input type="text" class="form-control" id="code" name="code" required>
+                    <div class="invalid-feedback">
+                        Please provide a hospital code.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="address">Address</label>
+                    <input type="text" class="form-control" id="address" name="address">
+                </div>
+            </div>
+            
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="city">City</label>
+                    <input type="text" class="form-control" id="city" name="city">
+                </div>
+
+                <div class="form-group">
+                    <label for="state">State</label>
+                    <select class="form-control" id="state" name="state">
+                        <option value="">Choose...</option>
+                        {% for state in ['AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA', 'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD', 'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ', 'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC', 'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'] %}
+                            <option value="{{ state }}">{{ state }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="zip_code">ZIP Code</label>
+                    <input type="text" class="form-control" id="zip_code" name="zip_code" pattern="[0-9]{5}">
+                    <div class="invalid-feedback">
+                        Please provide a valid ZIP code.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="status" class="required">Status</label>
+                    <select class="form-control" id="status" name="status" required>
+                        <option value="">Choose...</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                    </select>
+                    <div class="invalid-feedback">
+                        Please select a status.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <hr style="margin: var(--spacing-lg) 0;">
+        
+        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
+            <a href="{{ url_for('hospitals.index') }}" class="btn btn-info">Cancel</a>
+            <button type="submit" class="btn btn-primary">Add Hospital</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Form validation
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</script>
+{% endblock %} 

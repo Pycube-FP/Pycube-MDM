@@ -29,10 +29,15 @@
 {% endblock %}
 
 {% block content %}
-<div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-        <h1>Add New Device</h1>
-        <a href="{{ url_for('devices.index') }}" class="btn btn-info">Back to Devices</a>
+<div class="card p-4">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1 class="mb-0">Add New Device</h1>
+            <p class="text-muted mb-4">Create a new device in the system</p>
+        </div>
+        <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Devices
+        </a>
     </div>
     
     <form action="{{ url_for('devices.create') }}" method="POST">
@@ -73,6 +78,16 @@
                     </select>
                 </div>
                 
+                <div class="form-group">
+                    <label for="hospital_id">Hospital</label>
+                    <select class="form-control" id="hospital_id" name="hospital_id">
+                        <option value="">-- Select Hospital --</option>
+                        {% for hospital in hospitals %}
+                        <option value="{{ hospital.id }}">{{ hospital.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
                 <div class="form-group">
                     <label for="location_id">Location</label>
                     <select class="form-control" id="location_id" name="location_id">
@@ -136,7 +151,6 @@
         <hr style="margin: var(--spacing-lg) 0;">
         
         <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
-            <a href="{{ url_for('devices.index') }}" class="btn btn-info">Cancel</a>
             <button type="submit" class="btn btn-primary">Add Device</button>
         </div>
     </form>

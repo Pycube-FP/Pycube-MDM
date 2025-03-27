@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{{ reader.name }} - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Reader Details</h1>
+        <a href="{{ url_for('readers.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Readers
+        </a>
+    </div>
+
+    <div class="row">
+        <!-- Reader Details -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Reader Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">Reader Code</dt>
+                        <dd class="col-sm-8">{{ reader.reader_code }}</dd>
+
+                        <dt class="col-sm-4">Antenna Number</dt>
+                        <dd class="col-sm-8">{{ reader.antenna_number }}</dd>
+
+                        <dt class="col-sm-4">Status</dt>
+                        <dd class="col-sm-8">
+                            <span class="badge {% if reader.status == 'Active' %}bg-success{% else %}bg-danger{% endif %}">
+                                {{ reader.status }}
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-4">Hospital</dt>
+                        <dd class="col-sm-8">
+                            <a href="{{ url_for('hospitals.show', hospital_id=reader.hospital_id) }}">
+                                {{ reader.hospital_name }}
+                            </a>
+                        </dd>
+
+                        <dt class="col-sm-4">Location</dt>
+                        <dd class="col-sm-8">
+                            {% if reader.location_name %}
+                                {{ reader.location_name }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-4">Last Heartbeat</dt>
+                        <dd class="col-sm-8">
+                            {% if reader.last_heartbeat %}
+                                {{ reader.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') }}
+                            {% else %}
+                                Never
+                            {% endif %}
+                        </dd>
+
+                        <dt class="col-sm-4">Created</dt>
+                        <dd class="col-sm-8">{{ reader.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+
+                        <dt class="col-sm-4">Last Updated</dt>
+                        <dd class="col-sm-8">{{ reader.updated_at.strftime('%Y-%m-%d %H:%M:%S') }}</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row g-4">
+                        <div class="col-6">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-1">{{ stats.total_events }}</h3>
+                                <p class="text-muted mb-0">Total Events</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-1">{{ stats.recent_events }}</h3>
+                                <p class="text-muted mb-0">Recent Events</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-1">{{ stats.devices_tracked }}</h3>
+                                <p class="text-muted mb-0">Devices Tracked</p>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="border rounded p-3 text-center">
+                                <h3 class="mb-1">{{ stats.uptime_percentage }}%</h3>
+                                <p class="text-muted mb-0">Uptime</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Events -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Recent Events</h5>
+                </div>
+                <div class="card-body">
+                    {% if events %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>Device</th>
+                                    <th>Event Type</th>
+                                    <th>RSSI</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for event in events %}
+                                <tr>
+                                    <td>{{ event.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('devices.show', device_id=event.device_id) }}">
+                                            {{ event.device_name }}
+                                        </a>
+                                    </td>
+                                    <td>{{ event.event_type }}</td>
+                                    <td>{{ event.rssi }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-center text-muted mb-0">No recent events found.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

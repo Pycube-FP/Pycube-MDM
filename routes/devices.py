@@ -17,8 +17,8 @@ def index():
     offset = (page - 1) * limit
     
     # Get sort parameters from request
-    sort_by = request.args.get('sort', None)
-    sort_dir = request.args.get('dir', 'asc')
+    sort_by = request.args.get('sort_by')
+    sort_dir = request.args.get('sort_dir', 'asc')
     
     db_service = DBService()
     

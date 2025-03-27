@@ -4,6 +4,7 @@ from mysql.connector import pooling
 from datetime import datetime
 import json
 from dotenv import load_dotenv
+import uuid
 
 # Load environment variables from .env file
 load_dotenv()
@@ -56,7 +57,75 @@ class DBService:
         cursor = connection.cursor()
         
         try:
-            # Create devices table
+            # Create hospitals table first (no dependencies)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS hospitals (
+                    id VARCHAR(36) PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    code VARCHAR(50) UNIQUE NOT NULL,
+                    address TEXT,
+                    city VARCHAR(100),
+                    state VARCHAR(50),
+                    zip_code VARCHAR(20),
+                    status ENUM('Active', 'Inactive') DEFAULT 'Active',
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Create locations table (depends on hospitals)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS locations (
+                    id VARCHAR(36) PRIMARY KEY,
+                    name VARCHAR(100) NOT NULL,
+                    type ENUM('Entrance', 'Exit', 'Room', 'Ward', 'Department') NOT NULL,
+                    hospital_id VARCHAR(36) NOT NULL,
+                    building VARCHAR(100),
+                    floor VARCHAR(20),
+                    room VARCHAR(50),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id)
+                )
+            """)
+            
+            # Create nurses table (depends on hospitals)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS nurses (
+                    id VARCHAR(36) PRIMARY KEY,
+                    badge_id VARCHAR(100),
+                    first_name VARCHAR(100),
+                    last_name VARCHAR(100),
+                    hospital_id VARCHAR(36) NOT NULL,
+                    department VARCHAR(100),
+                    shift VARCHAR(50),
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id),
+                    UNIQUE KEY unique_badge_hospital (badge_id, hospital_id)
+                )
+            """)
+            
+            # Create readers table (depends on hospitals and locations)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS readers (
+                    id VARCHAR(36) PRIMARY KEY,
+                    reader_code VARCHAR(100) NOT NULL,
+                    antenna_number INT NOT NULL,
+                    name VARCHAR(100),
+                    hospital_id VARCHAR(36) NOT NULL,
+                    location_id VARCHAR(36) NOT NULL,
+                    status ENUM('Active', 'Inactive', 'Maintenance') DEFAULT 'Active',
+                    last_heartbeat DATETIME,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id),
+                    FOREIGN KEY (location_id) REFERENCES locations(id),
+                    UNIQUE KEY unique_reader_antenna (reader_code, antenna_number)
+                )
+            """)
+            
+            # Create devices table (depends on hospitals and locations)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS devices (
                     id VARCHAR(36) PRIMARY KEY,
@@ -66,6 +135,7 @@ class DBService:
                     rfid_tag VARCHAR(100) UNIQUE,
                     barcode VARCHAR(100) UNIQUE,
                     status ENUM('Available', 'In-Use', 'Maintenance', 'Missing') DEFAULT 'Available',
+                    hospital_id VARCHAR(36),
                     location_id VARCHAR(36),
                     assigned_to VARCHAR(100),
                     purchase_date DATE,
@@ -74,84 +144,62 @@ class DBService:
                     eol_status ENUM('Active', 'Warning', 'Critical', 'Expired') DEFAULT 'Active',
                     eol_notes TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # Create locations table
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS locations (
-                    id VARCHAR(36) PRIMARY KEY,
-                    name VARCHAR(100) NOT NULL,
-                    type ENUM('Entrance', 'Exit', 'Room', 'Ward', 'Department') NOT NULL,
-                    building VARCHAR(100),
-                    floor VARCHAR(20),
-                    room VARCHAR(50),
-                    has_reader BOOLEAN DEFAULT FALSE,
-                    reader_id VARCHAR(100),
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                )
-            """)
-            
-            # Create reader_events table (formerly movements)
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS reader_events (
-                    id VARCHAR(36) PRIMARY KEY,
-                    device_id VARCHAR(36),
-                    rfid_tag VARCHAR(100),
-                    reader_id VARCHAR(100),
-                    location_id VARCHAR(36),
-                    timestamp DATETIME,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (device_id) REFERENCES devices(id),
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id),
                     FOREIGN KEY (location_id) REFERENCES locations(id)
                 )
             """)
-
-            # Create nurses table
+            
+            # Create users table (depends on hospitals)
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS nurses (
+                CREATE TABLE IF NOT EXISTS users (
                     id VARCHAR(36) PRIMARY KEY,
-                    badge_id VARCHAR(100) UNIQUE,
+                    username VARCHAR(100) UNIQUE NOT NULL,
+                    password_hash VARCHAR(255) NOT NULL,
+                    role ENUM('admin', 'nurse', 'hospital_admin') NOT NULL,
+                    hospital_id VARCHAR(36),
                     first_name VARCHAR(100),
                     last_name VARCHAR(100),
-                    department VARCHAR(100),
-                    shift VARCHAR(50),
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id)
                 )
             """)
-
-            # Create device_assignments table
+            
+            # Create device_assignments table (depends on devices, nurses, and hospitals)
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS device_assignments (
                     id VARCHAR(36) PRIMARY KEY,
                     device_id VARCHAR(36),
                     nurse_id VARCHAR(36),
+                    hospital_id VARCHAR(36),
                     assigned_at DATETIME,
                     returned_at DATETIME,
                     status ENUM('Active', 'Transferred', 'Lost', 'Returned') DEFAULT 'Active',
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                     FOREIGN KEY (device_id) REFERENCES devices(id),
-                    FOREIGN KEY (nurse_id) REFERENCES nurses(id)
+                    FOREIGN KEY (nurse_id) REFERENCES nurses(id),
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id)
                 )
             """)
-
-            # Create users table
+            
+            # Update reader_events table to reference readers directly
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS users (
+                CREATE TABLE IF NOT EXISTS reader_events (
                     id VARCHAR(36) PRIMARY KEY,
-                    username VARCHAR(100) UNIQUE NOT NULL,
-                    password_hash VARCHAR(255) NOT NULL,
-                    role ENUM('admin', 'nurse') NOT NULL,
-                    first_name VARCHAR(100),
-                    last_name VARCHAR(100),
-                    nurse_id VARCHAR(36),
+                    device_id VARCHAR(36),
+                    rfid_tag VARCHAR(100),
+                    reader_code VARCHAR(100),
+                    antenna_number INT,
+                    hospital_id VARCHAR(36),
+                    location_id VARCHAR(36),
+                    timestamp DATETIME,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (nurse_id) REFERENCES nurses(id)
+                    FOREIGN KEY (device_id) REFERENCES devices(id),
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id),
+                    FOREIGN KEY (location_id) REFERENCES locations(id),
+                    FOREIGN KEY (reader_code, antenna_number) REFERENCES readers(reader_code, antenna_number)
                 )
             """)
 
@@ -160,19 +208,25 @@ class DBService:
                 CREATE TABLE IF NOT EXISTS rfid_alerts (
                     id VARCHAR(36) PRIMARY KEY,
                     device_id VARCHAR(36),
-                    reader_id VARCHAR(100),
-                    location VARCHAR(100),
-                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    reader_id VARCHAR(36),
+                    hospital_id VARCHAR(36),
+                    location_id VARCHAR(36),
+                    timestamp DATETIME,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                    FOREIGN KEY (device_id) REFERENCES devices(id)
+                    FOREIGN KEY (device_id) REFERENCES devices(id),
+                    FOREIGN KEY (reader_id) REFERENCES readers(id),
+                    FOREIGN KEY (hospital_id) REFERENCES hospitals(id),
+                    FOREIGN KEY (location_id) REFERENCES locations(id)
                 )
             """)
-            
+
             connection.commit()
-            print("Database tables created successfully")
+            print("All tables created successfully!")
+            
         except Exception as e:
             print(f"Error initializing database: {e}")
+            connection.rollback()
         finally:
             cursor.close()
             connection.close()
@@ -310,23 +364,54 @@ class DBService:
     def update_device(self, device):
         """Update a device record"""
         connection = self.get_connection()
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
         
         try:
+            # First get existing device data
+            cursor.execute("SELECT * FROM devices WHERE id = %s", (device.id,))
+            existing_device = cursor.fetchone()
+            
+            if not existing_device:
+                raise Exception(f"Device with id {device.id} not found")
+            
+            # Use existing values if new values are None
             query = """
                 UPDATE devices 
-                SET serial_number = %s, model = %s, manufacturer = %s, 
-                    rfid_tag = %s, barcode = %s, status = %s, location_id = %s, 
-                    assigned_to = %s, purchase_date = %s, last_maintenance_date = %s,
+                SET serial_number = %s,
+                    model = %s,
+                    manufacturer = %s,
+                    rfid_tag = %s,
+                    barcode = %s,
+                    status = %s,
+                    hospital_id = %s,
+                    location_id = %s,
+                    assigned_to = %s,
+                    purchase_date = %s,
+                    last_maintenance_date = %s,
+                    eol_date = %s,
+                    eol_status = %s,
+                    eol_notes = %s,
                     updated_at = %s
                 WHERE id = %s
             """
             
             values = (
-                device.serial_number, device.model, device.manufacturer,
-                device.rfid_tag, device.barcode, device.status, device.location_id,
-                device.assigned_to, device.purchase_date, device.last_maintenance_date,
-                datetime.now(), device.id
+                device.serial_number or existing_device['serial_number'],
+                device.model or existing_device['model'],
+                device.manufacturer or existing_device['manufacturer'],
+                device.rfid_tag or existing_device['rfid_tag'],
+                device.barcode or existing_device['barcode'],
+                device.status or existing_device['status'],
+                device.hospital_id or existing_device['hospital_id'],
+                device.location_id or existing_device['location_id'],
+                device.assigned_to if device.assigned_to is not None else existing_device['assigned_to'],
+                device.purchase_date or existing_device['purchase_date'],
+                device.last_maintenance_date or existing_device['last_maintenance_date'],
+                device.eol_date or existing_device['eol_date'],
+                device.eol_status or existing_device['eol_status'],
+                device.eol_notes or existing_device['eol_notes'],
+                datetime.now(),
+                device.id
             )
             
             cursor.execute(query, values)
@@ -367,15 +452,15 @@ class DBService:
         try:
             query = """
                 INSERT INTO locations (
-                    id, name, type, building, floor, room,
-                    has_reader, reader_id, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    id, name, type, hospital_id, building, floor, room,
+                    created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             values = (
-                location.id, location.name, location.type, location.building,
-                location.floor, location.room, location.has_reader, 
-                location.reader_id, location.created_at, location.updated_at
+                location.id, location.name, location.type, location.hospital_id,
+                location.building, location.floor, location.room,
+                location.created_at, location.updated_at
             )
             
             cursor.execute(query, values)
@@ -424,27 +509,76 @@ class DBService:
             connection.close()
     
     # Movement operations
-    def record_movement(self, movement):
-        """Record a device reader event"""
+    def record_movement(self, rfid_alert):
+        """Record a device reader event and create RFID alert"""
         connection = self.get_connection()
-        cursor = connection.cursor()
+        cursor = connection.cursor(dictionary=True)
         
         try:
-            query = """
+            # First get the reader details to validate and get location
+            reader_query = """
+                SELECT r.*, l.id as location_id, h.id as hospital_id
+                FROM readers r
+                LEFT JOIN locations l ON r.location_id = l.id
+                LEFT JOIN hospitals h ON r.hospital_id = h.id
+                WHERE r.reader_code = %s AND r.antenna_number = %s
+            """
+            cursor.execute(reader_query, (rfid_alert.reader_code, rfid_alert.antenna_number))
+            reader = cursor.fetchone()
+            
+            if not reader:
+                raise Exception(f"Reader {rfid_alert.reader_code} with antenna {rfid_alert.antenna_number} not found")
+            
+            # Get device by RFID tag
+            device_query = "SELECT id FROM devices WHERE rfid_tag = %s"
+            cursor.execute(device_query, (rfid_alert.rfid_tag,))
+            device = cursor.fetchone()
+            
+            if not device:
+                raise Exception(f"Device with RFID tag {rfid_alert.rfid_tag} not found")
+            
+            # Record the reader event for history
+            event_query = """
                 INSERT INTO reader_events (
-                    id, device_id, rfid_tag, reader_id, location_id,
-                    timestamp, created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                    id, device_id, rfid_tag, reader_code, antenna_number,
+                    hospital_id, location_id, timestamp, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
-            values = (
-                movement.id, movement.device_id, movement.rfid_tag,
-                movement.reader_id, movement.location_id, movement.timestamp,
-                movement.created_at
+            event_values = (
+                str(uuid.uuid4()),  # New ID for the event
+                device['id'],
+                rfid_alert.rfid_tag,
+                rfid_alert.reader_code,
+                rfid_alert.antenna_number,
+                reader['hospital_id'],
+                reader['location_id'],
+                rfid_alert.timestamp,
+                datetime.now()
             )
             
-            cursor.execute(query, values)
-            connection.commit()
+            cursor.execute(event_query, event_values)
+            
+            # Create RFID alert
+            alert_query = """
+                INSERT INTO rfid_alerts (
+                    id, device_id, reader_id, hospital_id, location_id,
+                    timestamp, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            alert_values = (
+                rfid_alert.id,  # Use the ID from the RFIDAlert object
+                device['id'],
+                reader['id'],
+                reader['hospital_id'],
+                reader['location_id'],
+                rfid_alert.timestamp,
+                datetime.now(),
+                datetime.now()
+            )
+            
+            cursor.execute(alert_query, alert_values)
             
             # Update device location
             update_query = """
@@ -452,10 +586,11 @@ class DBService:
                 SET location_id = %s, updated_at = %s
                 WHERE id = %s
             """
-            cursor.execute(update_query, (movement.location_id, datetime.now(), movement.device_id))
-            connection.commit()
+            cursor.execute(update_query, (reader['location_id'], datetime.now(), device['id']))
             
-            return movement.id
+            connection.commit()
+            return rfid_alert.id
+            
         except Exception as e:
             connection.rollback()
             print(f"Error recording reader event: {e}")
@@ -471,7 +606,8 @@ class DBService:
         
         try:
             query = """
-                SELECT re.*, l.name as location_name
+                SELECT re.*, l.name as location_name,
+                       CONCAT(re.reader_code, ' (Antenna ', re.antenna_number, ')') as reader_id
                 FROM reader_events re
                 LEFT JOIN locations l ON re.location_id = l.id
                 WHERE re.device_id = %s
@@ -546,58 +682,73 @@ class DBService:
             cursor.close()
             connection.close()
 
-    def get_rfid_alerts(self, device_id=None, alert_type=None, start_date=None, end_date=None, limit=100, offset=0):
-        """Get RFID alerts with optional filtering"""
-        connection = self.get_connection()
-        cursor = connection.cursor(dictionary=True)
-        
+    def get_rfid_alerts(self, limit=None, offset=None, sort_by=None, sort_dir='asc', device_id=None, start_date=None, end_date=None):
+        """Get RFID alerts with optional filtering and sorting"""
         try:
+            conn = self.get_connection()
+            cursor = conn.cursor(dictionary=True)  # Changed to dictionary cursor
+            
+            # Start building the query with a WHERE 1=1 clause to make dynamic filtering easier
             query = """
-                SELECT a.*, d.model, d.serial_number, d.status
+                SELECT a.id, a.timestamp, a.device_id, a.location_id,
+                       d.model as device_name, d.serial_number,
+                       l.name as location_name
                 FROM rfid_alerts a
                 LEFT JOIN devices d ON a.device_id = d.id
+                LEFT JOIN locations l ON a.location_id = l.id
                 WHERE 1=1
             """
+            
+            # Initialize parameters list
             params = []
             
+            # Add filters if provided
             if device_id:
                 query += " AND a.device_id = %s"
                 params.append(device_id)
-            
-            if alert_type:
-                query += " AND a.alert_type = %s"
-                params.append(alert_type)
-            
+                
             if start_date:
                 query += " AND a.timestamp >= %s"
                 params.append(start_date)
-            
+                
             if end_date:
                 query += " AND a.timestamp <= %s"
                 params.append(end_date)
             
-            query += " ORDER BY a.timestamp DESC LIMIT %s OFFSET %s"
-            params.extend([limit, offset])
+            # Add sorting if provided
+            valid_sort_columns = ['timestamp', 'device_name', 'location_name']
+            if sort_by in valid_sort_columns:
+                sort_dir = sort_dir.upper() if sort_dir.upper() in ['ASC', 'DESC'] else 'ASC'
+                if sort_by == 'device_name':
+                    query += f" ORDER BY d.model {sort_dir}"
+                elif sort_by == 'location_name':
+                    query += f" ORDER BY l.name {sort_dir}"
+                else:
+                    query += f" ORDER BY a.{sort_by} {sort_dir}"
+            else:
+                # Default sort by timestamp descending
+                query += " ORDER BY a.timestamp DESC"
             
-            cursor.execute(query, params)
+            # Add pagination if provided
+            if limit is not None:
+                query += " LIMIT %s"
+                params.append(limit)
+                
+                if offset is not None:
+                    query += " OFFSET %s"
+                    params.append(offset)
+            
+            cursor.execute(query, tuple(params))
             alerts = cursor.fetchall()
             
-            # Convert to RFIDAlert objects with device info
-            for alert in alerts:
-                alert['device'] = {
-                    'id': alert['device_id'],
-                    'model': alert['model'],
-                    'serial_number': alert['serial_number'],
-                    'status': alert['status']
-                }
+            cursor.close()
+            conn.close()
             
             return alerts
+            
         except Exception as e:
-            print(f"Error retrieving RFID alerts: {e}")
-            raise
-        finally:
-            cursor.close()
-            connection.close()
+            print(f"Error getting RFID alerts: {str(e)}")
+            return []
 
     def create_rfid_alert(self, alert):
         """Create a new RFID alert"""
@@ -1064,8 +1215,8 @@ class DBService:
             query = """
                 INSERT INTO users (
                     id, username, password_hash, role, first_name,
-                    last_name, nurse_id, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    last_name, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             values = (
@@ -1075,7 +1226,6 @@ class DBService:
                 user_data['role'],
                 user_data.get('first_name'),
                 user_data.get('last_name'),
-                user_data.get('nurse_id'),
                 datetime.now(),
                 datetime.now()
             )
@@ -1137,7 +1287,6 @@ class DBService:
                     role = %s,
                     first_name = %s,
                     last_name = %s,
-                    nurse_id = %s,
                     updated_at = %s
                 WHERE id = %s
             """
@@ -1147,7 +1296,6 @@ class DBService:
                 user_data['role'],
                 user_data.get('first_name'),
                 user_data.get('last_name'),
-                user_data.get('nurse_id'),
                 datetime.now(),
                 user_data['id']
             )
@@ -1179,6 +1327,556 @@ class DBService:
             connection.rollback()
             print(f"Error updating user password: {e}")
             return False
+        finally:
+            cursor.close()
+            connection.close()
+
+    # Hospital management methods
+    def create_hospital(self, hospital):
+        """Create a new hospital"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+                INSERT INTO hospitals (
+                    id, name, code, address, city, state,
+                    zip_code, status, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            values = (
+                hospital.id,
+                hospital.name,
+                hospital.code,
+                hospital.address,
+                hospital.city,
+                hospital.state,
+                hospital.zip_code,
+                hospital.status,
+                datetime.now(),
+                datetime.now()
+            )
+            
+            cursor.execute(query, values)
+            connection.commit()
+            return hospital.id
+        except Exception as e:
+            connection.rollback()
+            print(f"Error creating hospital: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_hospital(self, hospital_id):
+        """Get a hospital by ID"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = "SELECT * FROM hospitals WHERE id = %s"
+            cursor.execute(query, (hospital_id,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error retrieving hospital: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_all_hospitals(self, sort_by=None, sort_dir='asc'):
+        """Get all hospitals with optional sorting"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # Define valid sort columns and their SQL equivalents
+            valid_sort_columns = {
+                'name': 'name',
+                'code': 'code',
+                'status': 'status',
+                'created_at': 'created_at'
+            }
+            
+            # Base query
+            query = """
+                SELECT h.*, COUNT(r.id) as reader_count
+                FROM hospitals h
+                LEFT JOIN readers r ON h.id = r.hospital_id
+                GROUP BY h.id
+            """
+            
+            # Add sorting if valid column is provided
+            if sort_by and sort_by in valid_sort_columns:
+                sort_dir = sort_dir.upper() if sort_dir.lower() in ['asc', 'desc'] else 'ASC'
+                query += f" ORDER BY {valid_sort_columns[sort_by]} {sort_dir}"
+            else:
+                query += " ORDER BY created_at DESC"
+            
+            cursor.execute(query)
+            result = cursor.fetchall()
+            return result
+        except Exception as e:
+            print(f"Error retrieving hospitals: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def update_hospital(self, hospital):
+        """Update a hospital"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+                UPDATE hospitals 
+                SET name = %s, code = %s, address = %s,
+                    city = %s, state = %s, zip_code = %s,
+                    status = %s, updated_at = %s
+                WHERE id = %s
+            """
+            
+            values = (
+                hospital.name,
+                hospital.code,
+                hospital.address,
+                hospital.city,
+                hospital.state,
+                hospital.zip_code,
+                hospital.status,
+                datetime.now(),
+                hospital.id
+            )
+            
+            cursor.execute(query, values)
+            connection.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            connection.rollback()
+            print(f"Error updating hospital: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_hospital_statistics(self, hospital_id):
+        """Get statistics for a hospital"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            stats = {}
+            
+            # Get device counts by status
+            cursor.execute("""
+                SELECT status, COUNT(*) as count
+                FROM devices
+                WHERE hospital_id = %s
+                GROUP BY status
+            """, (hospital_id,))
+            stats['devices'] = {row['status']: row['count'] for row in cursor.fetchall()}
+            
+            # Get total nurses
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM nurses
+                WHERE hospital_id = %s
+            """, (hospital_id,))
+            stats['nurse_count'] = cursor.fetchone()['count']
+            
+            # Get active reader-antenna combinations
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM readers
+                WHERE hospital_id = %s AND status = 'Active'
+            """, (hospital_id,))
+            stats['active_readers'] = cursor.fetchone()['count']
+            
+            # Get recent alerts
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM rfid_alerts
+                WHERE hospital_id = %s
+                AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            """, (hospital_id,))
+            stats['recent_alerts'] = cursor.fetchone()['count']
+            
+            return stats
+        except Exception as e:
+            print(f"Error retrieving hospital statistics: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    # Reader management methods
+    def create_reader(self, reader):
+        """Create a new reader"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+                INSERT INTO readers (
+                    id, reader_code, antenna_number, name, hospital_id, location_id,
+                    status, last_heartbeat, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            values = (
+                reader.id,
+                reader.reader_code,
+                reader.antenna_number,
+                reader.name,
+                reader.hospital_id,
+                reader.location_id,
+                reader.status,
+                reader.last_heartbeat,
+                datetime.now(),
+                datetime.now()
+            )
+            
+            cursor.execute(query, values)
+            connection.commit()
+            return reader.id
+        except Exception as e:
+            connection.rollback()
+            print(f"Error creating reader: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_reader(self, reader_id):
+        """Get a reader by ID"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = """
+                SELECT r.*, h.name as hospital_name, l.name as location_name
+                FROM readers r
+                LEFT JOIN hospitals h ON r.hospital_id = h.id
+                LEFT JOIN locations l ON r.location_id = l.id
+                WHERE r.id = %s
+            """
+            cursor.execute(query, (reader_id,))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error retrieving reader: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_all_readers(self, sort_by=None, sort_dir='asc'):
+        """Get all readers with optional sorting"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # Define valid sort columns and their SQL equivalents
+            valid_sort_columns = {
+                'reader_code': 'reader_code',
+                'antenna': 'antenna_number',
+                'name': 'name',
+                'hospital': 'h.name',
+                'location': 'l.name',
+                'status': 'status',
+                'last_heartbeat': 'last_heartbeat'
+            }
+            
+            # Base query
+            query = """
+                SELECT r.*, h.name as hospital_name, l.name as location_name
+                FROM readers r
+                LEFT JOIN hospitals h ON r.hospital_id = h.id
+                LEFT JOIN locations l ON r.location_id = l.id
+            """
+            
+            # Add sorting if valid column is provided
+            if sort_by and sort_by in valid_sort_columns:
+                sort_dir = sort_dir.upper() if sort_dir.lower() in ['asc', 'desc'] else 'ASC'
+                query += f" ORDER BY {valid_sort_columns[sort_by]} {sort_dir}"
+            else:
+                query += " ORDER BY created_at DESC"
+            
+            cursor.execute(query)
+            result = cursor.fetchall()
+            return result
+        except Exception as e:
+            print(f"Error retrieving readers: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_hospital_readers(self, hospital_id):
+        """Get all readers for a hospital"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = """
+                SELECT r.*, l.name as location_name
+                FROM readers r
+                LEFT JOIN locations l ON r.location_id = l.id
+                WHERE r.hospital_id = %s
+                ORDER BY r.name ASC
+            """
+            cursor.execute(query, (hospital_id,))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error retrieving hospital readers: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def update_reader(self, reader):
+        """Update a reader"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+                UPDATE readers 
+                SET reader_code = %s, name = %s, hospital_id = %s,
+                    status = %s, last_heartbeat = %s, updated_at = %s
+                WHERE id = %s
+            """
+            
+            values = (
+                reader.reader_code,
+                reader.name,
+                reader.hospital_id,
+                reader.status,
+                reader.last_heartbeat,
+                datetime.now(),
+                reader.id
+            )
+            
+            cursor.execute(query, values)
+            connection.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            connection.rollback()
+            print(f"Error updating reader: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_reader_statistics(self, reader_id):
+        """Get statistics for a reader"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # First get the reader details to get reader_code and antenna_number
+            cursor.execute("""
+                SELECT reader_code, antenna_number, last_heartbeat, status,
+                       TIMESTAMPDIFF(MINUTE, last_heartbeat, NOW()) as minutes_since_heartbeat
+                FROM readers
+                WHERE id = %s
+            """, (reader_id,))
+            reader = cursor.fetchone()
+            
+            if not reader:
+                raise Exception(f"Reader with id {reader_id} not found")
+            
+            stats = {}
+            
+            # Get total events (all time)
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM reader_events
+                WHERE reader_code = %s AND antenna_number = %s
+            """, (reader['reader_code'], reader['antenna_number']))
+            stats['total_events'] = cursor.fetchone()['count']
+            
+            # Get recent events (last 24 hours)
+            cursor.execute("""
+                SELECT COUNT(*) as count
+                FROM reader_events
+                WHERE reader_code = %s AND antenna_number = %s
+                AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            """, (reader['reader_code'], reader['antenna_number']))
+            stats['recent_events'] = cursor.fetchone()['count']
+            
+            # Get unique devices tracked (all time)
+            cursor.execute("""
+                SELECT COUNT(DISTINCT device_id) as count
+                FROM reader_events
+                WHERE reader_code = %s AND antenna_number = %s
+            """, (reader['reader_code'], reader['antenna_number']))
+            stats['devices_tracked'] = cursor.fetchone()['count']
+            
+            # Calculate uptime percentage based on heartbeat
+            # Consider reader up if last heartbeat was within last 5 minutes
+            if reader['status'] == 'Active':
+                minutes_since_heartbeat = reader['minutes_since_heartbeat'] or float('inf')
+                stats['uptime_percentage'] = 100 if minutes_since_heartbeat <= 5 else 0
+            else:
+                stats['uptime_percentage'] = 0
+            
+            return stats
+        except Exception as e:
+            print(f"Error retrieving reader statistics: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+    
+    def get_reader_events(self, reader_id, limit=10):
+        """Get recent events for a reader"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # First get the reader details
+            cursor.execute("""
+                SELECT reader_code, antenna_number
+                FROM readers
+                WHERE id = %s
+            """, (reader_id,))
+            reader = cursor.fetchone()
+            
+            if not reader:
+                raise Exception(f"Reader with id {reader_id} not found")
+            
+            query = """
+                SELECT re.*, d.model, d.serial_number
+                FROM reader_events re
+                LEFT JOIN devices d ON re.device_id = d.id
+                WHERE re.reader_code = %s AND re.antenna_number = %s
+                ORDER BY re.timestamp DESC
+                LIMIT %s
+            """
+            cursor.execute(query, (reader['reader_code'], reader['antenna_number'], limit))
+            return cursor.fetchall()
+        except Exception as e:
+            print(f"Error retrieving reader events: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+
+    def get_reader_by_code_and_antenna(self, reader_code, antenna_number):
+        """Get a reader by reader code and antenna number"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = """
+                SELECT r.*, h.name as hospital_name, l.name as location_name
+                FROM readers r
+                LEFT JOIN hospitals h ON r.hospital_id = h.id
+                LEFT JOIN locations l ON r.location_id = l.id
+                WHERE r.reader_code = %s AND r.antenna_number = %s
+            """
+            cursor.execute(query, (reader_code, antenna_number))
+            return cursor.fetchone()
+        except Exception as e:
+            print(f"Error retrieving reader by code and antenna: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+
+    def get_all_users(self, sort_by=None, sort_dir='asc'):
+        """Get all users with optional sorting"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # Define valid sort columns and their SQL equivalents
+            valid_sort_columns = {
+                'username': 'username',
+                'role': 'role',
+                'name': 'CONCAT(first_name, " ", last_name)',
+                'created_at': 'created_at'
+            }
+            
+            # Base query
+            query = "SELECT * FROM users"
+            
+            # Add sorting if valid column is provided
+            if sort_by and sort_by in valid_sort_columns:
+                sort_dir = sort_dir.upper() if sort_dir.lower() in ['asc', 'desc'] else 'ASC'
+                query += f" ORDER BY {valid_sort_columns[sort_by]} {sort_dir}"
+            else:
+                query += " ORDER BY created_at DESC"
+            
+            cursor.execute(query)
+            result = cursor.fetchall()
+            return result
+        except Exception as e:
+            print(f"Error retrieving users: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+
+    def get_rfid_alerts_count(self):
+        """Get total count of RFID alerts"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor()
+            
+            query = """
+                SELECT COUNT(*) 
+                FROM rfid_alerts
+            """
+            
+            cursor.execute(query)
+            count = cursor.fetchone()[0]
+            
+            cursor.close()
+            conn.close()
+            
+            return count
+            
+        except Exception as e:
+            print(f"Error getting RFID alerts count: {str(e)}")
+            return 0
+
+    def get_rfid_alert(self, alert_id):
+        """Get detailed information about a specific RFID alert"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            query = """
+                SELECT 
+                    ra.*,
+                    d.model as device_name,
+                    d.serial_number,
+                    d.model,
+                    d.rfid_tag as asset_tag,
+                    l.name as location_name,
+                    l.type as location_type,
+                    CONCAT_WS(', ',
+                        NULLIF(l.building, ''),
+                        NULLIF(l.floor, ''),
+                        NULLIF(l.room, '')
+                    ) as location_description,
+                    h.name as hospital_name,
+                    r.name as reader_name,
+                    r.reader_code as reader_serial,
+                    r.antenna_number
+                FROM rfid_alerts ra
+                LEFT JOIN devices d ON ra.device_id = d.id
+                LEFT JOIN locations l ON ra.location_id = l.id
+                LEFT JOIN hospitals h ON l.hospital_id = h.id
+                LEFT JOIN readers r ON ra.reader_id = r.id
+                WHERE ra.id = %s
+            """
+            cursor.execute(query, (alert_id,))
+            alert = cursor.fetchone()
+            return alert
         finally:
             cursor.close()
             connection.close() 

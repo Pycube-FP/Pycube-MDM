@@ -76,19 +76,22 @@ pycube_mdm/
 ├── models/                # Data models
 │   ├── device.py
 │   ├── location.py
-│   └── movement.py
+│   ├── reader_event.py
+│   ├── nurse.py
+│   ├── device_assignment.py
+│   └── rfid_alert.py
 ├── routes/                # Route definitions
 │   ├── dashboard.py
 │   └── devices.py
 ├── services/              # Business logic
 │   └── db_service.py
-├── scripts/               # Maintenance scripts
+├── scripts/              # Maintenance scripts
 │   ├── setup_db.py
 │   └── update_epc_codes.py
-├── static/                # Static assets
+├── static/               # Static assets
 │   ├── css/
 │   └── img/
-└── templates/             # HTML templates
+└── templates/            # HTML templates
     ├── dashboard.html
     └── devices/
 ```

@@ -19,162 +19,186 @@
 {% endblock %}
 
 {% block content %}
-<div class="card">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Device Details</h1>
-        <div style="display: flex; gap: var(--spacing-sm);">
-            <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning">Edit Device</a>
-            <a href="{{ url_for('devices.index') }}" class="btn btn-info">Back to Devices</a>
-            <button class="btn btn-danger delete-device" data-id="{{ device.id }}">Delete Device</button>
-        </div>
+        <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Devices
+        </a>
     </div>
     
-    <div class="row">
-        <div class="col-6">
-            <div style="display: flex; align-items: center; margin-bottom: var(--spacing-md);">
-                <div class="status-indicator status-{{ device.status.lower() }}" style="width: 16px; height: 16px;"></div>
-                <span style="font-size: var(--font-size-large); font-weight: 600; margin-left: var(--spacing-sm);">
-                    {{ device.status }}
-                </span>
-            </div>
-            
-            <h3>{{ device.manufacturer }} {{ device.model }}</h3>
-            
-            <table style="width: 100%; margin-top: var(--spacing-md);">
-                <tr>
-                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Serial Number:</td>
-                    <td>{{ device.serial_number }}</td>
-                </tr>
-                <tr>
-                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EPC Code:</td>
-                    <td>{{ device.rfid_tag }}</td>
-                </tr>
-                <tr>
-                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Barcode:</td>
-                    <td>{{ device.barcode }}</td>
-                </tr>
-                <tr>
-                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Assigned To:</td>
-                    <td>{{ device.assigned_to or 'Unassigned' }}</td>
-                </tr>
-                <tr>
-                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Purchase Date:</td>
-                    <td>{{ device.purchase_date.strftime('%m/%d/%Y') if device.purchase_date else 'Unknown' }}</td>
-                </tr>
-                <tr>
-                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Last Maintenance:</td>
-                    <td>{{ device.last_maintenance_date.strftime('%m/%d/%Y') if device.last_maintenance_date else 'No maintenance records' }}</td>
-                </tr>
-                <tr>
-                    <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Added On:</td>
-                    <td>{{ device.created_at.strftime('%m/%d/%Y %I:%M %p') if device.created_at else 'Unknown' }}</td>
-                </tr>
-            </table>
-
-            <div style="margin-top: var(--spacing-lg); padding: var(--spacing-md); background-color: var(--primary-50); border-radius: var(--border-radius-md);">
-                <h4 style="margin-bottom: var(--spacing-md);">End of Life Information</h4>
-                <table style="width: 100%;">
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Date:</td>
-                        <td>{{ device.eol_date.strftime('%m/%d/%Y') if device.eol_date else 'Not set' }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Status:</td>
-                        <td>
-                            {% if device.eol_status %}
-                            <span class="eol-status eol-{{ device.eol_status.lower() }}">{{ device.eol_status }}</span>
-                            {% else %}
-                            Not set
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% if device.eol_notes %}
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Notes:</td>
-                        <td>{{ device.eol_notes }}</td>
-                    </tr>
-                    {% endif %}
-                </table>
+    <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+            <h1>Device Details</h1>
+            <div style="display: flex; gap: var(--spacing-sm);">
+                <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning">Edit Device</a>
+                <button class="btn btn-danger delete-device" data-id="{{ device.id }}">Delete Device</button>
             </div>
         </div>
         
-        <div class="col-6">
-            <div class="card" style="background-color: var(--primary-50); padding: var(--spacing-md);">
-                <h3>Quick Actions</h3>
-                <div style="display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
-                    <button id="scanBtn" class="btn btn-success">Re-scan RFID Tag</button>
-                    
-                    {% if device.status == 'Missing' %}
-                    <button id="markFoundBtn" class="btn btn-primary">Mark as Found</button>
-                    {% elif device.status == 'Available' %}
-                    <button id="markInUseBtn" class="btn btn-info">Mark as In-Use</button>
-                    {% elif device.status == 'In-Use' %}
-                    <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
-                    <button id="markMaintenanceBtn" class="btn btn-warning">Mark for Maintenance</button>
-                    {% elif device.status == 'Maintenance' %}
-                    <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
-                    {% endif %}
+        <div class="row">
+            <div class="col-6">
+                <div style="display: flex; align-items: center; margin-bottom: var(--spacing-md);">
+                    <div class="status-indicator status-{{ device.status.lower() }}" style="width: 16px; height: 16px;"></div>
+                    <span style="font-size: var(--font-size-large); font-weight: 600; margin-left: var(--spacing-sm);">
+                        {{ device.status }}
+                    </span>
+                </div>
+                
+                <h3>{{ device.manufacturer }} {{ device.model }}</h3>
+                
+                <table style="width: 100%; margin-top: var(--spacing-md);">
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Serial Number:</td>
+                        <td>{{ device.serial_number }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EPC Code:</td>
+                        <td>{{ device.rfid_tag }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Barcode:</td>
+                        <td>{{ device.barcode }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Hospital:</td>
+                        <td>
+                            {% if device.hospital_id %}
+                                <a href="{{ url_for('hospitals.show', hospital_id=device.hospital_id) }}">
+                                    {{ device.hospital_name }}
+                                </a>
+                            {% else %}
+                                Not assigned
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Location:</td>
+                        <td>{{ device.location_name if device.location_name else 'Not assigned' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Assigned To:</td>
+                        <td>{{ device.assigned_to or 'Unassigned' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Purchase Date:</td>
+                        <td>{{ device.purchase_date.strftime('%m/%d/%Y') if device.purchase_date else 'Unknown' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Last Maintenance:</td>
+                        <td>{{ device.last_maintenance_date.strftime('%m/%d/%Y') if device.last_maintenance_date else 'No maintenance records' }}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Added On:</td>
+                        <td>{{ device.created_at.strftime('%m/%d/%Y %I:%M %p') if device.created_at else 'Unknown' }}</td>
+                    </tr>
+                </table>
+
+                <div style="margin-top: var(--spacing-lg); padding: var(--spacing-md); background-color: var(--primary-50); border-radius: var(--border-radius-md);">
+                    <h4 style="margin-bottom: var(--spacing-md);">End of Life Information</h4>
+                    <table style="width: 100%;">
+                        <tr>
+                            <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Date:</td>
+                            <td>{{ device.eol_date.strftime('%m/%d/%Y') if device.eol_date else 'Not set' }}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Status:</td>
+                            <td>
+                                {% if device.eol_status %}
+                                <span class="eol-status eol-{{ device.eol_status.lower() }}">{{ device.eol_status }}</span>
+                                {% else %}
+                                Not set
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if device.eol_notes %}
+                        <tr>
+                            <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Notes:</td>
+                            <td>{{ device.eol_notes }}</td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+            
+            <div class="col-6">
+                <div class="card" style="background-color: var(--primary-50); padding: var(--spacing-md);">
+                    <h3>Quick Actions</h3>
+                    <div style="display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
+                        <button id="scanBtn" class="btn btn-success">Re-scan RFID Tag</button>
+                        
+                        {% if device.status == 'Missing' %}
+                        <button id="markFoundBtn" class="btn btn-primary">Mark as Found</button>
+                        {% elif device.status == 'Available' %}
+                        <button id="markInUseBtn" class="btn btn-info">Mark as In-Use</button>
+                        {% elif device.status == 'In-Use' %}
+                        <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
+                        <button id="markMaintenanceBtn" class="btn btn-warning">Mark for Maintenance</button>
+                        {% elif device.status == 'Maintenance' %}
+                        <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
+        
+        <hr style="margin: var(--spacing-lg) 0;">
+        
+        <h2>Assignment History</h2>
+        {% if assignments %}
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Assigned To</th>
+                    <th>Department</th>
+                    <th>Assigned At</th>
+                    <th>Status</th>
+                    <th>Returned At</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for assignment in assignments %}
+                <tr>
+                    <td>{{ assignment.nurse_name }}</td>
+                    <td>{{ assignment.department }}</td>
+                    <td>{{ assignment.created_at.strftime('%m/%d/%Y %I:%M %p') if assignment.created_at else 'Unknown' }}</td>
+                    <td>{{ assignment.status }}</td>
+                    <td>{{ assignment.returned_at.strftime('%m/%d/%Y %I:%M %p') if assignment.returned_at else '-' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No assignment history found for this device.</p>
+        {% endif %}
+        
+        <hr style="margin: var(--spacing-lg) 0;">
+        
+        <h2>Reader Events</h2>
+        
+        {% if movements %}
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Timestamp</th>
+                    <th>Location</th>
+                    <th>Reader ID</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movement in movements %}
+                <tr>
+                    <td>{{ movement.timestamp.strftime('%m/%d/%Y %I:%M %p') if movement.timestamp else 'Unknown' }}</td>
+                    <td>{{ movement.location_name or 'Unknown' }}</td>
+                    <td>{{ movement.reader_id or 'Unknown' }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <p>No reader events found for this device.</p>
+        {% endif %}
     </div>
-    
-    <hr style="margin: var(--spacing-lg) 0;">
-    
-    <h2>Assignment History</h2>
-    {% if assignments %}
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Assigned To</th>
-                <th>Department</th>
-                <th>Assigned At</th>
-                <th>Status</th>
-                <th>Returned At</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for assignment in assignments %}
-            <tr>
-                <td>{{ assignment.nurse_name }}</td>
-                <td>{{ assignment.department }}</td>
-                <td>{{ assignment.created_at.strftime('%m/%d/%Y %I:%M %p') if assignment.created_at else 'Unknown' }}</td>
-                <td>{{ assignment.status }}</td>
-                <td>{{ assignment.returned_at.strftime('%m/%d/%Y %I:%M %p') if assignment.returned_at else '-' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>No assignment history found for this device.</p>
-    {% endif %}
-    
-    <hr style="margin: var(--spacing-lg) 0;">
-    
-    <h2>Reader Events</h2>
-    
-    {% if movements %}
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Timestamp</th>
-                <th>Location</th>
-                <th>Reader ID</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for movement in movements %}
-            <tr>
-                <td>{{ movement.timestamp.strftime('%m/%d/%Y %I:%M %p') if movement.timestamp else 'Unknown' }}</td>
-                <td>{{ movement.location_name or 'Unknown' }}</td>
-                <td>{{ movement.reader_id or 'Unknown' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <p>No reader events found for this device.</p>
-    {% endif %}
 </div>
 
 <!-- Delete Confirmation Modal -->

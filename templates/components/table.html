@@ -1,0 +1,70 @@
+{% macro render_table(headers, rows, sort_by=None, sort_dir=None, empty_message=None, actions=True) %}
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="bg-dark text-white">
+            <tr>
+                {% for header in headers %}
+                    {% if header.sortable %}
+                        <th class="sortable" data-sort="{{ header.key }}">
+                            {{ header.label }}
+                            {% if sort_by == header.key %}
+                                <i class="fas fa-sort-{{ 'down' if sort_dir == 'desc' else 'up' }}"></i>
+                            {% else %}
+                                <i class="fas fa-sort"></i>
+                            {% endif %}
+                        </th>
+                    {% else %}
+                        <th>{{ header.label }}</th>
+                    {% endif %}
+                {% endfor %}
+                {% if actions %}
+                    <th>Actions</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if rows %}
+                {{ caller() }}
+            {% else %}
+                <tr>
+                    <td colspan="{{ headers|length + (1 if actions else 0) }}" class="text-center py-4">
+                        {{ empty_message or 'No records found.' }}
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
+
+{% macro render_actions(buttons) %}
+<div class="btn-group" role="group">
+    {% for button in buttons %}
+        <a href="{{ button.url }}" 
+           class="btn btn-sm {{ button.class }}" 
+           title="{{ button.title }}"
+           {% if button.id %}id="{{ button.id }}"{% endif %}
+           {% if button.data %}
+               {% for key, value in button.data.items() %}
+                   data-{{ key }}="{{ value }}"
+               {% endfor %}
+           {% endif %}>
+            <i class="fas fa-{{ button.icon }}"></i>
+        </a>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro render_status_badge(status, type='default') %}
+    {% set status_classes = {
+        'Active': 'bg-success',
+        'Inactive': 'bg-danger',
+        'Maintenance': 'bg-warning',
+        'Available': 'bg-success',
+        'In-Use': 'bg-info',
+        'Missing': 'bg-danger'
+    } %}
+    <span class="badge {{ status_classes.get(status, 'bg-secondary') }}">
+        {{ status }}
+    </span>
+{% endmacro %} 

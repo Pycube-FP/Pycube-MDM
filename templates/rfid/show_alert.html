@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block title %}Alert Details - Pycube MDM{% endblock %}
+
+{% block extra_head %}
+<style>
+    .alert-details-card {
+        max-width: 800px;
+        margin: 2rem auto;
+    }
+
+    .detail-section {
+        margin-bottom: 2rem;
+    }
+
+    .detail-section h3 {
+        color: #333;
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid #eee;
+    }
+
+    .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+
+    .detail-item {
+        margin-bottom: 1rem;
+    }
+
+    .detail-label {
+        font-weight: 500;
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .detail-value {
+        color: #333;
+        font-size: 1rem;
+    }
+
+    .alert-timestamp {
+        font-size: 1.1rem;
+        color: #dc3545;
+        font-weight: 500;
+    }
+
+    .alert-badge {
+        display: inline-block;
+        padding: 0.25rem 0.75rem;
+        border-radius: 50px;
+        font-size: 0.875rem;
+        font-weight: 500;
+        background-color: #dc3545;
+        color: white;
+        margin-bottom: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card alert-details-card">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-4">
+            <div>
+                <h1 class="h3 mb-2">Missing Device Alert</h1>
+                <div class="alert-badge">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Missing Device
+                </div>
+                <div class="alert-timestamp">
+                    {{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}
+                </div>
+            </div>
+            <a href="{{ url_for('rfid.alerts') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Back to Alerts
+            </a>
+        </div>
+
+        <div class="detail-section">
+            <h3>
+                <i class="fas fa-mobile-alt me-2"></i>
+                Device Information
+            </h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Device Name</div>
+                    <div class="detail-value">{{ alert.device_name }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Serial Number</div>
+                    <div class="detail-value">{{ alert.serial_number }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Model</div>
+                    <div class="detail-value">{{ alert.model }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Asset Tag</div>
+                    <div class="detail-value">{{ alert.asset_tag or 'N/A' }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3>
+                <i class="fas fa-map-marker-alt me-2"></i>
+                Location Information
+            </h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Hospital</div>
+                    <div class="detail-value">{{ alert.hospital_name }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Location</div>
+                    <div class="detail-value">{{ alert.location_name }}</div>
+                </div>
+                {% if alert.location_description %}
+                <div class="detail-item">
+                    <div class="detail-label">Location Details</div>
+                    <div class="detail-value">{{ alert.location_description }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h3>
+                <i class="fas fa-broadcast-tower me-2"></i>
+                Reader Information
+            </h3>
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <div class="detail-label">Reader Name</div>
+                    <div class="detail-value">{{ alert.reader_name }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Reader Code</div>
+                    <div class="detail-value">{{ alert.reader_serial }}</div>
+                </div>
+                <div class="detail-item">
+                    <div class="detail-label">Antenna Number</div>
+                    <div class="detail-value">{{ alert.antenna_number }}</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('devices.show', device_id=alert.device_id) }}" class="btn btn-danger">
+                <i class="fas fa-search me-1"></i>
+                Track Device
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %} 

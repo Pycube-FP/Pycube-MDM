@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, render_template
+from flask import Blueprint, request, jsonify, render_template, flash, redirect, url_for
 from services.db_service import DBService
 from models.rfid_alert import RFIDAlert
 from models.device import Device
@@ -18,18 +18,24 @@ def alerts():
     page = request.args.get('page', 1, type=int)
     per_page = 10  # Number of alerts per page
     
-    # Get total count of alerts for pagination
-    total_alerts = len(db_service.get_rfid_alerts())
-    total_pages = math.ceil(total_alerts / per_page)
+    # Get sort parameters from request
+    sort_by = request.args.get('sort_by')
+    sort_dir = request.args.get('sort_dir', 'asc')
     
-    # Get alerts for current page
+    # Get alerts with pagination
     offset = (page - 1) * per_page
-    alerts = db_service.get_rfid_alerts(limit=per_page, offset=offset)
+    alerts = db_service.get_rfid_alerts(limit=per_page, offset=offset, sort_by=sort_by, sort_dir=sort_dir)
+    
+    # Get total count for pagination
+    total_alerts = db_service.get_rfid_alerts_count()
+    total_pages = math.ceil(total_alerts / per_page)
     
     return render_template('rfid/alerts.html', 
                          alerts=alerts,
                          current_page=page,
-                         total_pages=total_pages)
+                         total_pages=total_pages,
+                         sort_by=sort_by,
+                         sort_dir=sort_dir)
 
 @rfid_bp.route('/api/alerts', methods=['GET'])
 @login_required
@@ -111,4 +117,19 @@ def handle_rfid_alert():
         return jsonify(response_data)
     
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+@rfid_bp.route('/alerts/<alert_id>')
+@login_required
+def show_alert(alert_id):
+    """Show detailed information about a specific RFID alert"""
+    db_service = DBService()
+    
+    # Get alert details with joined information
+    alert = db_service.get_rfid_alert(alert_id)
+    
+    if not alert:
+        flash('Alert not found', 'error')
+        return redirect(url_for('rfid.alerts'))
+    
+    return render_template('rfid/show_alert.html', alert=alert) 

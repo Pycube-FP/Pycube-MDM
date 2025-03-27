@@ -119,8 +119,7 @@ def api_login():
                     'username': user.username,
                     'firstName': user_data.get('first_name'),
                     'lastName': user_data.get('last_name'),
-                    'role': user.role,
-                    'nurseId': user_data.get('nurse_id')
+                    'role': user.role
                 }
             })
     
@@ -141,7 +140,6 @@ def create_user():
         role = request.form.get('role')
         first_name = request.form.get('first_name')
         last_name = request.form.get('last_name')
-        nurse_id = request.form.get('nurse_id') if role == 'nurse' else None
         
         db_service = DBService()
         
@@ -155,8 +153,7 @@ def create_user():
             username=username,
             role=role,
             first_name=first_name,
-            last_name=last_name,
-            nurse_id=nurse_id
+            last_name=last_name
         )
         user.set_password(password)
         
@@ -167,47 +164,24 @@ def create_user():
         except Exception as e:
             flash(f'Error creating user: {str(e)}', 'error')
     
-    # Get all nurses for the dropdown
-    db_service = DBService()
-    connection = db_service.get_connection()
-    cursor = connection.cursor(dictionary=True)
-    nurses = []
-    try:
-        cursor.execute("SELECT * FROM nurses ORDER BY badge_id")
-        nurses = cursor.fetchall()
-    finally:
-        cursor.close()
-        connection.close()
-    
-    return render_template('auth/create_user.html', nurses=nurses)
+    return render_template('auth/create_user.html')
 
 @auth_bp.route('/users')
 @login_required
 @role_required(['admin'])
 def list_users():
-    """List all users (admin only)"""
+    """List all users"""
     db_service = DBService()
     
-    # Get all users from database
-    query = """
-        SELECT u.*, n.badge_id, n.department
-        FROM users u
-        LEFT JOIN nurses n ON u.nurse_id = n.id
-        ORDER BY u.created_at DESC
-    """
-    connection = db_service.get_connection()
-    cursor = connection.cursor(dictionary=True)
+    # Get sort parameters from request
+    sort_by = request.args.get('sort_by')
+    sort_dir = request.args.get('sort_dir', 'asc')
     
-    try:
-        cursor.execute(query)
-        users = cursor.fetchall()
-        return render_template('auth/users.html', users=users)
-    except Exception as e:
-        flash(f'Error retrieving users: {str(e)}', 'error')
-        return redirect(url_for('dashboard.index'))
-    finally:
-        cursor.close()
-        connection.close()
+    users = db_service.get_all_users(sort_by=sort_by, sort_dir=sort_dir)
+    return render_template('auth/users.html', 
+                         users=users,
+                         sort_by=sort_by,
+                         sort_dir=sort_dir)
 
 @auth_bp.route('/users/<user_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -226,7 +200,6 @@ def edit_user(user_id):
         role = request.form.get('role')
         first_name = request.form.get('first_name')
         last_name = request.form.get('last_name')
-        nurse_id = request.form.get('nurse_id') if role == 'nurse' else None
         new_password = request.form.get('password')
         
         # Check if username is taken by another user
@@ -241,7 +214,6 @@ def edit_user(user_id):
             role=role,
             first_name=first_name,
             last_name=last_name,
-            nurse_id=nurse_id,
             id=user_id
         )
         
@@ -257,19 +229,7 @@ def edit_user(user_id):
         except Exception as e:
             flash(f'Error updating user: {str(e)}', 'error')
     
-    # Get nurses for dropdown if editing a nurse user
-    nurses = []
-    if user_data['role'] == 'nurse':
-        connection = db_service.get_connection()
-        cursor = connection.cursor(dictionary=True)
-        try:
-            cursor.execute("SELECT * FROM nurses ORDER BY first_name, last_name")
-            nurses = cursor.fetchall()
-        finally:
-            cursor.close()
-            connection.close()
-    
-    return render_template('auth/edit_user.html', user=user_data, nurses=nurses)
+    return render_template('auth/edit_user.html', user=user_data)
 
 @auth_bp.route('/users/<user_id>/delete', methods=['POST'])
 @login_required
@@ -286,6 +246,11 @@ def delete_user(user_id):
     # Prevent deleting own account or last admin
     if user_id == session.get('user_id'):
         flash('Cannot delete your own account', 'error')
+        return redirect(url_for('auth.list_users'))
+    
+    # Prevent deleting the default admin user
+    if user_data['username'] == ADMIN_USERNAME:
+        flash('Cannot delete the default admin user', 'error')
         return redirect(url_for('auth.list_users'))
     
     if user_data['role'] == 'admin':

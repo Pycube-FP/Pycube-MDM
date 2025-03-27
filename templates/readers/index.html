@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "components/table.html" import render_table, render_actions, render_status_badge %}
+
+{% block title %}RFID Readers - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>RFID Readers</h1>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('readers.create') }}" class="btn btn-dark">
+            <i class="fas fa-plus"></i> Add New Reader
+        </a>
+        {% endif %}
+    </div>
+    
+    {% call render_table(
+        headers=[
+            {'key': 'reader_code', 'label': 'Reader Code', 'sortable': true},
+            {'key': 'antenna', 'label': 'Antenna', 'sortable': true},
+            {'key': 'name', 'label': 'Name', 'sortable': true},
+            {'key': 'hospital', 'label': 'Hospital', 'sortable': true},
+            {'key': 'location', 'label': 'Location', 'sortable': true},
+            {'key': 'status', 'label': 'Status', 'sortable': true},
+            {'key': 'last_heartbeat', 'label': 'Last Heartbeat', 'sortable': true}
+        ],
+        rows=readers,
+        empty_message='No readers found. <a href="' ~ url_for('readers.create') ~ '">Add a new reader</a>.'
+    ) %}
+        {% for reader in readers %}
+        <tr>
+            <td>{{ reader.reader_code }}</td>
+            <td>{{ reader.antenna_number }}</td>
+            <td>{{ reader.name }}</td>
+            <td>{{ reader.hospital_name }}</td>
+            <td>{{ reader.location_name if reader.location_name else '-' }}</td>
+            <td>
+                {{ render_status_badge(reader.status) }}
+            </td>
+            <td>
+                {% if reader.last_heartbeat %}
+                    {{ reader.last_heartbeat.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                    Never
+                {% endif %}
+            </td>
+            <td>
+                {{ render_actions([
+                    {'url': url_for('readers.show', reader_id=reader.id), 'class': 'btn-info', 'icon': 'eye', 'title': 'View Details'},
+                    {'url': url_for('readers.edit', reader_id=reader.id), 'class': 'btn-warning', 'icon': 'pencil', 'title': 'Edit'}
+                ]) }}
+            </td>
+        </tr>
+        {% endfor %}
+    {% endcall %}
+</div>
+{% endblock %} 

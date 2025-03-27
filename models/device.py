@@ -6,10 +6,10 @@ class Device:
     Model for mobile devices tracked with RFID
     """
     def __init__(self, id=None, serial_number=None, model=None, manufacturer=None, 
-                 rfid_tag=None, barcode=None, status="Available", location_id=None, 
-                 assigned_to=None, purchase_date=None, last_maintenance_date=None,
-                 eol_date=None, eol_status="Active", eol_notes=None,
-                 created_at=None, updated_at=None):
+                 rfid_tag=None, barcode=None, status="Available", hospital_id=None,
+                 location_id=None, assigned_to=None, purchase_date=None, 
+                 last_maintenance_date=None, eol_date=None, eol_status="Active", 
+                 eol_notes=None, created_at=None, updated_at=None):
         self.id = id or str(uuid.uuid4())
         self.serial_number = serial_number
         self.model = model
@@ -17,6 +17,7 @@ class Device:
         self.rfid_tag = rfid_tag  # This is now the EPC Code but kept as rfid_tag for DB compatibility
         self.barcode = barcode
         self.status = status  # Available, In-Use, Maintenance, Missing
+        self.hospital_id = hospital_id
         self.location_id = location_id
         self.assigned_to = assigned_to
         self.purchase_date = purchase_date
@@ -48,6 +49,7 @@ class Device:
             rfid_tag=data.get('rfid_tag'),
             barcode=data.get('barcode'),
             status=data.get('status', 'Available'),
+            hospital_id=data.get('hospital_id'),
             location_id=data.get('location_id'),
             assigned_to=data.get('assigned_to'),
             purchase_date=data.get('purchase_date'),
@@ -70,6 +72,7 @@ class Device:
             'epc_code': self.rfid_tag,  # Add new field name as well
             'barcode': self.barcode,
             'status': self.status,
+            'hospital_id': self.hospital_id,
             'location_id': self.location_id,
             'assigned_to': self.assigned_to,
             'purchase_date': self.purchase_date,

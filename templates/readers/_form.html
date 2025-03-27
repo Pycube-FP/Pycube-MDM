@@ -1,0 +1,110 @@
+<form method="POST" class="needs-validation" novalidate>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <label for="reader_code" class="form-label">Reader Code *</label>
+            <input type="text" class="form-control" id="reader_code" name="reader_code" 
+                   value="{{ reader.reader_code if reader else '' }}" required>
+            <div class="invalid-feedback">
+                Please provide a reader code.
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label for="antenna_number" class="form-label">Antenna Number *</label>
+            <input type="number" class="form-control" id="antenna_number" name="antenna_number" 
+                   value="{{ reader.antenna_number if reader else '' }}" required min="1" max="8">
+            <div class="invalid-feedback">
+                Please provide an antenna number (1-8).
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label for="name" class="form-label">Name</label>
+            <input type="text" class="form-control" id="name" name="name" 
+                   value="{{ reader.name if reader else '' }}" 
+                   placeholder="Will be auto-generated if left empty">
+        </div>
+
+        <div class="col-md-6">
+            <label for="hospital_id" class="form-label">Hospital *</label>
+            <select class="form-select" id="hospital_id" name="hospital_id" required 
+                    {% if hospital_id %}disabled{% endif %}>
+                <option value="">Choose...</option>
+                {% for h in hospitals %}
+                    <option value="{{ h.id }}" 
+                            {% if (reader and reader.hospital_id == h.id) or 
+                                  (hospital_id and hospital_id|int == h.id|int) %}selected{% endif %}>
+                        {{ h.name }}
+                    </option>
+                {% endfor %}
+            </select>
+            {% if hospital_id %}
+                <input type="hidden" name="hospital_id" value="{{ hospital_id }}">
+            {% endif %}
+            <div class="invalid-feedback">
+                Please select a hospital.
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label for="location_id" class="form-label">Location *</label>
+            <select class="form-select" id="location_id" name="location_id" required>
+                <option value="">Choose...</option>
+                {% for location in locations %}
+                    <option value="{{ location.id }}" 
+                            {% if reader and reader.location_id == location.id %}selected{% endif %}>
+                        {{ location.name }}
+                    </option>
+                {% endfor %}
+            </select>
+            <div class="invalid-feedback">
+                Please select a location.
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <label for="status" class="form-label">Status *</label>
+            <select class="form-select" id="status" name="status" required>
+                <option value="">Choose...</option>
+                {% for status in ['Active', 'Inactive', 'Maintenance'] %}
+                    <option value="{{ status }}" {% if reader and reader.status == status %}selected{% endif %}>
+                        {{ status }}
+                    </option>
+                {% endfor %}
+            </select>
+            <div class="invalid-feedback">
+                Please select a status.
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <button type="submit" class="btn btn-primary">
+            {{ 'Update Reader' if reader else 'Create Reader' }}
+        </button>
+        {% if reader %}
+            <a href="{{ url_for('readers.show', reader_id=reader.id) }}" class="btn btn-secondary">Cancel</a>
+        {% elif hospital_id %}
+            <a href="{{ url_for('hospitals.readers', hospital_id=hospital_id) }}" class="btn btn-secondary">Cancel</a>
+        {% else %}
+            <a href="{{ url_for('readers.index') }}" class="btn btn-secondary">Cancel</a>
+        {% endif %}
+    </div>
+</form>
+
+<script>
+// Form validation
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</script> 

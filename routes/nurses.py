@@ -15,8 +15,8 @@ def index():
         offset = (page - 1) * per_page
         
         # Get sort parameters from request
-        sort_by = request.args.get('sort', None)
-        sort_dir = request.args.get('dir', 'asc')
+        sort_by = request.args.get('sort_by')
+        sort_dir = request.args.get('sort_dir', 'asc')
         
         db_service = DBService()
         
@@ -171,8 +171,8 @@ def api_list():
         offset = (page - 1) * per_page
         
         # Get sort parameters from request
-        sort_by = request.args.get('sort', None)
-        sort_dir = request.args.get('dir', 'asc')
+        sort_by = request.args.get('sort_by')
+        sort_dir = request.args.get('sort_dir', 'asc')
         
         db_service = DBService()
         

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+
+{% block title %}Add New RFID Reader - Pycube MDM{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-control {
+        margin-bottom: var(--spacing-md);
+    }
+    
+    label {
+        display: block;
+        margin-bottom: var(--spacing-xs);
+        font-weight: 500;
+    }
+    
+    .required::after {
+        content: "*";
+        color: var(--alert-color);
+        margin-left: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card p-4">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1 class="mb-0">Add New Reader</h1>
+            <p class="text-muted mb-4">Create a new RFID reader in the system</p>
+        </div>
+        <a href="{{ url_for('readers.index') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Readers
+        </a>
+    </div>
+
+    <form method="POST" class="needs-validation" novalidate>
+        <div class="row">
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="reader_code" class="required">Reader Code</label>
+                    <input type="text" class="form-control" id="reader_code" name="reader_code" required>
+                    <div class="invalid-feedback">
+                        Please provide a reader code.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="antenna_number" class="required">Antenna Number</label>
+                    <input type="number" class="form-control" id="antenna_number" name="antenna_number" required min="1">
+                    <div class="invalid-feedback">
+                        Please provide an antenna number.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="name">Reader Name</label>
+                    <input type="text" class="form-control" id="name" name="name">
+                </div>
+            </div>
+            
+            <div class="col-6">
+                <div class="form-group">
+                    <label for="hospital_id" class="required">Hospital</label>
+                    <select class="form-control" id="hospital_id" name="hospital_id" required 
+                            {% if hospital_id %}disabled{% endif %}>
+                        <option value="">Choose...</option>
+                        {% for h in hospitals %}
+                            <option value="{{ h.id }}" 
+                                    {% if (hospital_id and hospital_id|int == h.id|int) %}selected{% endif %}>
+                                {{ h.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    {% if hospital_id %}
+                        <input type="hidden" name="hospital_id" value="{{ hospital_id }}">
+                    {% endif %}
+                    <div class="invalid-feedback">
+                        Please select a hospital.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="location_id" class="required">Location</label>
+                    <select class="form-control" id="location_id" name="location_id" required>
+                        <option value="">Choose...</option>
+                        {% for location in locations %}
+                            <option value="{{ location.id }}">{{ location.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="invalid-feedback">
+                        Please select a location.
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="status" class="required">Status</label>
+                    <select class="form-control" id="status" name="status" required>
+                        <option value="">Choose...</option>
+                        <option value="Active">Active</option>
+                        <option value="Inactive">Inactive</option>
+                        <option value="Maintenance">Maintenance</option>
+                    </select>
+                    <div class="invalid-feedback">
+                        Please select a status.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <hr style="margin: var(--spacing-lg) 0;">
+        
+        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
+            {% if hospital_id %}
+                <a href="{{ url_for('hospitals.readers', hospital_id=hospital_id) }}" class="btn btn-info">Cancel</a>
+            {% else %}
+                <a href="{{ url_for('readers.index') }}" class="btn btn-info">Cancel</a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary">Add Reader</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Form validation
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</script>
+{% endblock %} 

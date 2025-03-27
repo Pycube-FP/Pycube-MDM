@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "components/table.html" import render_table, render_actions, render_status_badge %}
+
+{% block title %}Hospitals - Pycube MDM{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <h1>Hospitals</h1>
+        {% if session.get('role') == 'admin' %}
+        <a href="{{ url_for('hospitals.create') }}" class="btn btn-dark">
+            <i class="fas fa-plus"></i> Add New Hospital
+        </a>
+        {% endif %}
+    </div>
+    
+    {% call render_table(
+        headers=[
+            {'key': 'name', 'label': 'Name', 'sortable': true},
+            {'key': 'code', 'label': 'Code', 'sortable': true},
+            {'key': 'location', 'label': 'Location', 'sortable': false},
+            {'key': 'status', 'label': 'Status', 'sortable': true}
+        ],
+        rows=hospitals,
+        empty_message='No hospitals found. <a href="' ~ url_for('hospitals.create') ~ '">Add a new hospital</a>.'
+    ) %}
+        {% for hospital in hospitals %}
+        <tr>
+            <td>{{ hospital.name }}</td>
+            <td>{{ hospital.code }}</td>
+            <td>
+                {% if hospital.city and hospital.state %}
+                    {{ hospital.city }}, {{ hospital.state }}
+                {% elif hospital.city %}
+                    {{ hospital.city }}
+                {% elif hospital.state %}
+                    {{ hospital.state }}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                {{ render_status_badge(hospital.status) }}
+            </td>
+            <td>
+                {{ render_actions([
+                    {'url': url_for('hospitals.show', hospital_id=hospital.id), 'class': 'btn-info', 'icon': 'eye', 'title': 'View Details'},
+                    {'url': url_for('hospitals.readers', hospital_id=hospital.id), 'class': 'btn-primary', 'icon': 'broadcast-tower', 'title': 'View Readers'},
+                    {'url': url_for('hospitals.edit', hospital_id=hospital.id), 'class': 'btn-warning', 'icon': 'pencil', 'title': 'Edit'}
+                ]) }}
+            </td>
+        </tr>
+        {% endfor %}
+    {% endcall %}
+</div>
+{% endblock %} 

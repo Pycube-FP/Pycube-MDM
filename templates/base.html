@@ -555,6 +555,18 @@
                     </li>
                     {% if session.get('role') == 'admin' %}
                     <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint.startswith('hospitals.') %}active{% endif %}"
+                           href="{{ url_for('hospitals.index') }}">
+                            Hospitals
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint.startswith('readers.') %}active{% endif %}"
+                           href="{{ url_for('readers.index') }}">
+                            RFID Readers
+                        </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'auth.list_users' %}active{% endif %}"
                            href="{{ url_for('auth.list_users') }}">
                             User Management
@@ -664,6 +676,24 @@
                 }
             }
         };
+
+        // Initialize sort functionality for all tables
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('th.sortable').forEach(header => {
+                header.addEventListener('click', function() {
+                    const sort = this.dataset.sort;
+                    const currentDir = new URLSearchParams(window.location.search).get('sort_dir') || 'asc';
+                    const newDir = currentDir === 'asc' ? 'desc' : 'asc';
+                    
+                    // Preserve existing query parameters
+                    const params = new URLSearchParams(window.location.search);
+                    params.set('sort_by', sort);
+                    params.set('sort_dir', newDir);
+                    
+                    window.location.href = `${window.location.pathname}?${params.toString()}`;
+                });
+            });
+        });
     </script>
     
     {% block scripts %}{% endblock %}
