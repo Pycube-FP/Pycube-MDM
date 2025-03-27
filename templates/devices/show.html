@@ -20,17 +20,16 @@
 
 {% block content %}
 <div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Device Details</h1>
-        <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Back to Devices
-        </a>
-    </div>
-    
     <div class="card">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-            <h1>Device Details</h1>
+            <div>
+                <h1>Device Details</h1>
+                <p class="text-muted mb-0">{{ device.manufacturer }} {{ device.model }}</p>
+            </div>
             <div style="display: flex; gap: var(--spacing-sm);">
+                <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Back to Devices
+                </a>
                 <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning">Edit Device</a>
                 <button class="btn btn-danger delete-device" data-id="{{ device.id }}">Delete Device</button>
             </div>

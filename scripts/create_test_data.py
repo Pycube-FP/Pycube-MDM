@@ -30,48 +30,147 @@ def create_test_data():
     # Create test hospitals
     hospitals = [
         Hospital(
-            name="Memorial Hospital",
-            code="MEM",
-            address="123 Main St",
+            name="BayCare Alliant Hospital",
+            code="BAH",
+            address="601 Main St",
             city="Tampa",
             state="FL",
             zip_code="33601",
             status="Active"
         ),
         Hospital(
-            name="St. Joseph's Hospital",
-            code="SJH",
-            address="456 Oak Ave",
-            city="Clearwater",
+            name="BayCare Hospital Wesley Chapel",
+            code="BHWC",
+            address="602 Oak Ave",
+            city="Wesley Chapel",
             state="FL",
-            zip_code="33755",
+            zip_code="33544",
             status="Active"
         ),
         Hospital(
-            name="General Medical Center",
-            code="GMC",
-            address="789 Pine Rd",
+            name="Bartow Regional Medical Center",
+            code="BRMC",
+            address="603 Pine Rd",
+            city="Bartow",
+            state="FL",
+            zip_code="33830",
+            status="Active"
+        ),
+        Hospital(
+            name="Mease Countryside Hospital",
+            code="MCH",
+            address="604 Elm St",
+            city="Safety Harbor",
+            state="FL",
+            zip_code="34695",
+            status="Active"
+        ),
+        Hospital(
+            name="Mease Dunedin Hospital",
+            code="MDH",
+            address="605 Maple Dr",
+            city="Dunedin",
+            state="FL",
+            zip_code="34698",
+            status="Active"
+        ),
+        Hospital(
+            name="Morton Plant Hospital",
+            code="MPH",
+            address="606 Oak St",
+            city="Clearwater",
+            state="FL",
+            zip_code="33756",
+            status="Active"
+        ),
+        Hospital(
+            name="Morton Plant North Bay Hospital",
+            code="MPNBH",
+            address="607 Pine St",
+            city="New Port Richey",
+            state="FL",
+            zip_code="34652",
+            status="Active"
+        ),
+        Hospital(
+            name="South Florida Baptist Hospital",
+            code="SFBH",
+            address="608 Main St",
+            city="Plant City",
+            state="FL",
+            zip_code="33563",
+            status="Active"
+        ),
+        Hospital(
+            name="St. Anthony's Hospital",
+            code="SAH",
+            address="609 Beach Dr",
             city="St. Petersburg",
             state="FL",
             zip_code="33701",
             status="Active"
         ),
         Hospital(
-            name="Community Hospital",
-            code="COM",
-            address="321 Elm St",
-            city="Brandon",
+            name="St. Joseph's Hospital",
+            code="SJH",
+            address="610 MLK Blvd",
+            city="Tampa",
             state="FL",
-            zip_code="33510",
+            zip_code="33607",
             status="Active"
         ),
         Hospital(
-            name="Regional Medical Center",
-            code="RMC",
-            address="654 Maple Dr",
-            city="Lakeland",
+            name="St. Joseph's Children's Hospital",
+            code="SJCH",
+            address="611 MLK Blvd",
+            city="Tampa",
             state="FL",
-            zip_code="33801",
+            zip_code="33607",
+            status="Active"
+        ),
+        Hospital(
+            name="St. Joseph's Women's Hospital",
+            code="SJWH",
+            address="612 MLK Blvd",
+            city="Tampa",
+            state="FL",
+            zip_code="33607",
+            status="Active"
+        ),
+        Hospital(
+            name="St. Joseph's Hospital-North",
+            code="SJHN",
+            address="613 Van Dyke Rd",
+            city="Lutz",
+            state="FL",
+            zip_code="33558",
+            status="Active"
+        ),
+        Hospital(
+            name="St. Joseph's Hospital-South",
+            code="SJHS",
+            address="614 Big Bend Rd",
+            city="Riverview",
+            state="FL",
+            zip_code="33578",
+            status="Active"
+        ),
+        Hospital(
+            name="Winter Haven Hospital",
+            code="WHH",
+            address="615 First St N",
+            city="Winter Haven",
+            state="FL",
+            zip_code="33881",
+            status="Active"
+        ),
+        Hospital(
+            name="Winter Haven Women's Hospital",
+            code="WHWH",
+            address="616 First St N",
+            city="Winter Haven",
+            state="FL",
+            zip_code="33881",
             status="Active"
         )
     ]
@@ -122,7 +221,9 @@ def create_test_data():
         hospital_locations = [loc for loc in all_locations if loc['hospital_id'] == hospital_id]
         
         for reader_num in range(2):
-            reader_code = f"READER-{hospital_id[:6]}-{reader_num+1}"
+            # Generate a unique identifier without the number suffix
+            reader_uuid = str(uuid.uuid4())[:6]
+            reader_code = f"READER-{reader_uuid}"
             num_antennas = random.randint(2, 3)
             
             for antenna_num in range(1, num_antennas + 1):
@@ -131,7 +232,7 @@ def create_test_data():
                 reader = Reader(
                     reader_code=reader_code,
                     antenna_number=antenna_num,
-                    name=f"Reader {reader_num+1} Antenna {antenna_num}",
+                    name=f"Reader {reader_uuid} Antenna {antenna_num}",
                     hospital_id=hospital_id,
                     location_id=location['id'],
                     status="Active",
