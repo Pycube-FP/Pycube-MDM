@@ -134,7 +134,7 @@ class DBService:
                     manufacturer VARCHAR(100),
                     rfid_tag VARCHAR(100) UNIQUE,
                     barcode VARCHAR(100) UNIQUE,
-                    status ENUM('Available', 'In-Use', 'Maintenance', 'Missing') DEFAULT 'Available',
+                    status ENUM('In-Facility', 'Missing') DEFAULT 'In-Facility',
                     hospital_id VARCHAR(36),
                     location_id VARCHAR(36),
                     assigned_to VARCHAR(100),
@@ -241,18 +241,18 @@ class DBService:
             query = """
                 INSERT INTO devices (
                     id, serial_number, model, manufacturer, rfid_tag, barcode,
-                    status, location_id, assigned_to, purchase_date, 
+                    status, hospital_id, location_id, assigned_to, purchase_date, 
                     last_maintenance_date, eol_date, eol_status, eol_notes,
                     created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             values = (
                 device.id, device.serial_number, device.model, device.manufacturer,
-                device.rfid_tag, device.barcode, device.status, device.location_id,
-                device.assigned_to, device.purchase_date, device.last_maintenance_date,
-                device.eol_date, device.eol_status, device.eol_notes,
-                device.created_at, device.updated_at
+                device.rfid_tag, device.barcode, device.status, device.hospital_id,
+                device.location_id, device.assigned_to, device.purchase_date,
+                device.last_maintenance_date, device.eol_date, device.eol_status,
+                device.eol_notes, device.created_at, device.updated_at
             )
             
             cursor.execute(query, values)
@@ -272,7 +272,13 @@ class DBService:
         cursor = connection.cursor(dictionary=True)
         
         try:
-            query = "SELECT * FROM devices WHERE id = %s"
+            query = """
+                SELECT d.*, h.name as hospital_name, l.name as location_name
+                FROM devices d
+                LEFT JOIN hospitals h ON d.hospital_id = h.id
+                LEFT JOIN locations l ON d.location_id = l.id
+                WHERE d.id = %s
+            """
             cursor.execute(query, (device_id,))
             result = cursor.fetchone()
             return result
@@ -289,7 +295,13 @@ class DBService:
         cursor = connection.cursor(dictionary=True)
         
         try:
-            query = "SELECT * FROM devices WHERE rfid_tag = %s"
+            query = """
+                SELECT d.*, h.name as hospital_name, l.name as location_name
+                FROM devices d
+                LEFT JOIN hospitals h ON d.hospital_id = h.id
+                LEFT JOIN locations l ON d.location_id = l.id
+                WHERE d.rfid_tag = %s
+            """
             cursor.execute(query, (rfid_tag,))
             result = cursor.fetchone()
             return result
@@ -306,7 +318,13 @@ class DBService:
         cursor = connection.cursor(dictionary=True)
         
         try:
-            query = "SELECT * FROM devices WHERE barcode = %s"
+            query = """
+                SELECT d.*, h.name as hospital_name, l.name as location_name
+                FROM devices d
+                LEFT JOIN hospitals h ON d.hospital_id = h.id
+                LEFT JOIN locations l ON d.location_id = l.id
+                WHERE d.barcode = %s
+            """
             cursor.execute(query, (barcode,))
             result = cursor.fetchone()
             return result

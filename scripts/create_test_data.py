@@ -30,6 +30,7 @@ def create_test_data():
     # Create test hospitals
     hospitals = [
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="BayCare Alliant Hospital",
             code="BAH",
             address="601 Main St",
@@ -39,6 +40,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="BayCare Hospital Wesley Chapel",
             code="BHWC",
             address="602 Oak Ave",
@@ -48,6 +50,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Bartow Regional Medical Center",
             code="BRMC",
             address="603 Pine Rd",
@@ -57,6 +60,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Mease Countryside Hospital",
             code="MCH",
             address="604 Elm St",
@@ -66,6 +70,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Mease Dunedin Hospital",
             code="MDH",
             address="605 Maple Dr",
@@ -75,6 +80,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Morton Plant Hospital",
             code="MPH",
             address="606 Oak St",
@@ -84,6 +90,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Morton Plant North Bay Hospital",
             code="MPNBH",
             address="607 Pine St",
@@ -93,6 +100,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="South Florida Baptist Hospital",
             code="SFBH",
             address="608 Main St",
@@ -102,6 +110,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Anthony's Hospital",
             code="SAH",
             address="609 Beach Dr",
@@ -111,6 +120,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Hospital",
             code="SJH",
             address="610 MLK Blvd",
@@ -120,6 +130,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Children's Hospital",
             code="SJCH",
             address="611 MLK Blvd",
@@ -129,6 +140,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Women's Hospital",
             code="SJWH",
             address="612 MLK Blvd",
@@ -138,6 +150,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Hospital-North",
             code="SJHN",
             address="613 Van Dyke Rd",
@@ -147,6 +160,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Hospital-South",
             code="SJHS",
             address="614 Big Bend Rd",
@@ -156,6 +170,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Winter Haven Hospital",
             code="WHH",
             address="615 First St N",
@@ -165,6 +180,7 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
+            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Winter Haven Women's Hospital",
             code="WHWH",
             address="616 First St N",
@@ -178,8 +194,8 @@ def create_test_data():
     hospital_ids = []
     for hospital in hospitals:
         try:
-            hospital_id = db_service.create_hospital(hospital)
-            hospital_ids.append(hospital_id)
+            hospital_ids.append(hospital.id)  # Store the pre-generated ID
+            db_service.create_hospital(hospital)
             print(f"Created hospital: {hospital.name}")
         except Exception as e:
             print(f"Error creating hospital {hospital.name}: {e}")
@@ -260,9 +276,9 @@ def create_test_data():
             manufacturer="Apple",
             rfid_tag="RFID001",
             barcode="BC001",
-            status="Available",
-            hospital_id=hospital_ids[0],
-            location_id=all_locations[0]['id'],
+            status="In-Facility",
+            hospital_id=hospital_ids[0],  # BayCare Alliant Hospital
+            location_id=all_locations[0]['id'],  # Emergency Department Exit
             purchase_date=format_date(current_date - timedelta(days=365*2)),
             last_maintenance_date=format_date(current_date - timedelta(days=7)),
             eol_date=format_date(current_date + timedelta(days=365)),
@@ -274,9 +290,9 @@ def create_test_data():
             manufacturer="Apple",
             rfid_tag="RFID002",
             barcode="BC002",
-            status="In-Use",
-            hospital_id=hospital_ids[1],
-            location_id=all_locations[5]['id'],
+            status="In-Facility",
+            hospital_id=hospital_ids[1],  # BayCare Hospital Wesley Chapel
+            location_id=all_locations[5]['id'],  # Main Entrance
             purchase_date=format_date(current_date - timedelta(days=365*3)),
             last_maintenance_date=format_date(current_date - timedelta(days=30)),
             eol_date=format_date(current_date + timedelta(days=90)),
@@ -288,11 +304,109 @@ def create_test_data():
             manufacturer="Apple",
             rfid_tag="RFID003",
             barcode="BC003",
-            status="Available",
-            hospital_id=hospital_ids[2],
-            location_id=all_locations[10]['id'],
+            status="Missing",
+            hospital_id=hospital_ids[2],  # Bartow Regional Medical Center
+            location_id=all_locations[10]['id'],  # Surgery Ward Exit
             purchase_date=format_date(current_date - timedelta(days=30)),
             last_maintenance_date=format_date(current_date - timedelta(days=7)),
+            eol_date=format_date(current_date + timedelta(days=365*3)),
+            eol_status="Active"
+        ),
+        Device(
+            serial_number="IP15-002",
+            model="iPhone 15",
+            manufacturer="Apple",
+            rfid_tag="RFID004",
+            barcode="BC004",
+            status="In-Facility",
+            hospital_id=hospital_ids[3],  # Mease Countryside Hospital
+            location_id=all_locations[15]['id'],  # ICU Department
+            purchase_date=format_date(current_date - timedelta(days=45)),
+            last_maintenance_date=format_date(current_date - timedelta(days=5)),
+            eol_date=format_date(current_date + timedelta(days=365*3)),
+            eol_status="Active"
+        ),
+        Device(
+            serial_number="IP14-003",
+            model="iPhone 14",
+            manufacturer="Apple",
+            rfid_tag="RFID005",
+            barcode="BC005",
+            status="Missing",
+            hospital_id=hospital_ids[4],  # Mease Dunedin Hospital
+            location_id=all_locations[20]['id'],  # Pharmacy Exit
+            purchase_date=format_date(current_date - timedelta(days=365)),
+            last_maintenance_date=format_date(current_date - timedelta(days=14)),
+            eol_date=format_date(current_date + timedelta(days=365*2)),
+            eol_status="Active"
+        ),
+        Device(
+            serial_number="IP15-003",
+            model="iPhone 15",
+            manufacturer="Apple",
+            rfid_tag="RFID006",
+            barcode="BC006",
+            status="In-Facility",
+            hospital_id=hospital_ids[5],  # Morton Plant Hospital
+            location_id=all_locations[25]['id'],  # Emergency Department Exit
+            purchase_date=format_date(current_date - timedelta(days=60)),
+            last_maintenance_date=format_date(current_date - timedelta(days=10)),
+            eol_date=format_date(current_date + timedelta(days=365*3)),
+            eol_status="Active"
+        ),
+        Device(
+            serial_number="IP14-004",
+            model="iPhone 14",
+            manufacturer="Apple",
+            rfid_tag="RFID007",
+            barcode="BC007",
+            status="In-Facility",
+            hospital_id=hospital_ids[6],  # Morton Plant North Bay Hospital
+            location_id=all_locations[30]['id'],  # Main Entrance
+            purchase_date=format_date(current_date - timedelta(days=365*2)),
+            last_maintenance_date=format_date(current_date - timedelta(days=21)),
+            eol_date=format_date(current_date + timedelta(days=180)),
+            eol_status="Warning"
+        ),
+        Device(
+            serial_number="IP15-004",
+            model="iPhone 15",
+            manufacturer="Apple",
+            rfid_tag="RFID008",
+            barcode="BC008",
+            status="Missing",
+            hospital_id=hospital_ids[7],  # South Florida Baptist Hospital
+            location_id=all_locations[35]['id'],  # Surgery Ward Exit
+            purchase_date=format_date(current_date - timedelta(days=90)),
+            last_maintenance_date=format_date(current_date - timedelta(days=15)),
+            eol_date=format_date(current_date + timedelta(days=365*3)),
+            eol_status="Active"
+        ),
+        Device(
+            serial_number="IP14-005",
+            model="iPhone 14",
+            manufacturer="Apple",
+            rfid_tag="RFID009",
+            barcode="BC009",
+            status="In-Facility",
+            hospital_id=hospital_ids[8],  # St. Anthony's Hospital
+            location_id=all_locations[40]['id'],  # ICU Department
+            purchase_date=format_date(current_date - timedelta(days=365*1.5)),
+            last_maintenance_date=format_date(current_date - timedelta(days=3)),
+            eol_date=format_date(current_date + timedelta(days=365)),
+            eol_status="Active"
+        ),
+        Device(
+            serial_number="IP15-005",
+            model="iPhone 15",
+            manufacturer="Apple",
+            rfid_tag="RFID010",
+            barcode="BC010",
+            status="In-Facility",
+            hospital_id=hospital_ids[9],  # St. Joseph's Hospital
+            location_id=all_locations[45]['id'],  # Pharmacy Exit
+            purchase_date=format_date(current_date - timedelta(days=75)),
+            last_maintenance_date=format_date(current_date - timedelta(days=1)),
             eol_date=format_date(current_date + timedelta(days=365*3)),
             eol_status="Active"
         )

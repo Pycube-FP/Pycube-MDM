@@ -68,8 +68,6 @@ def login():
                 session['role'] = user.role
                 session['first_name'] = user_data.get('first_name')
                 
-                flash('Login successful', 'success')
-                
                 next_page = request.args.get('next')
                 if next_page:
                     return redirect(next_page)

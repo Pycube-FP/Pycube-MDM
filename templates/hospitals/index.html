@@ -22,7 +22,7 @@
             {'key': 'status', 'label': 'Status', 'sortable': true}
         ],
         rows=hospitals,
-        empty_message='No hospitals found. <a href="' ~ url_for('hospitals.create') ~ '">Add a new hospital</a>.'
+        empty_message=('No hospitals found. <a href="' ~ url_for('hospitals.create') ~ '">Add a new hospital</a>.')|safe
     ) %}
         {% for hospital in hospitals %}
         <tr>

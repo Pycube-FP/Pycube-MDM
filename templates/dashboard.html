@@ -5,202 +5,206 @@
 {% block extra_head %}
 <style>
     .dashboard-container {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
-        padding: 0 1rem;
-    }
-    
-    .success-message {
-        background-color: #28a745;
-        color: white;
-        padding: 1rem;
-        border-radius: 4px;
-        margin-bottom: 2rem;
+        padding: 1.5rem;
     }
     
     .dashboard-header {
-        background-color: white;
-        border-radius: 10px;
-        padding: 2rem;
-        margin-bottom: 2rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        background: white;
+        border-radius: 20px;
+        padding: 2.5rem;
+        margin-bottom: 2.5rem;
+        color: #333;
+        position: relative;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    }
+    
+    .dashboard-header::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        background: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5z' fill='%23000000' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E");
+        opacity: 0.15;
+        border-radius: 20px;
     }
     
     .dashboard-header h1 {
-        margin-top: 0;
-        font-size: 2rem;
+        margin: 0;
+        font-size: 2.75rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
         margin-bottom: 0.5rem;
-        color: #333;
+        color: #111;
     }
     
     .dashboard-header p {
-        margin-bottom: 0;
-        color: #666;
-        font-size: 1.1rem;
+        margin: 0;
+        font-size: 1.2rem;
+        opacity: 0.75;
+        max-width: 600px;
+        line-height: 1.5;
+        color: #444;
     }
-    
-    .stats-row {
+
+    .stats-grid {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
         gap: 1.5rem;
         margin-bottom: 2rem;
     }
     
     .stat-card {
-        background-color: white;
-        border-radius: 10px;
-        padding: 2rem;
-        text-align: center;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        transition: transform 0.2s;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .stat-header {
         display: flex;
-        flex-direction: column;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .stat-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        display: flex;
         align-items: center;
         justify-content: center;
+        margin-right: 1rem;
     }
     
-    .stat-card.total {
-        background-color: white;
+    .stat-icon i {
+        font-size: 1.2rem;
+        color: white;
     }
     
-    .stat-card.missing {
-        background-color: rgba(220, 53, 69, 0.1);
-    }
-    
-    .stat-card.available {
-        background-color: rgba(40, 167, 69, 0.1);
-    }
-    
-    .stat-card.in-use {
-        background-color: rgba(13, 110, 253, 0.1);
-    }
-    
-    .stat-number {
-        font-size: 2.5rem;
-        font-weight: 700;
-        margin-bottom: 0.5rem;
-    }
-    
-    .stat-number.total {
-        color: #333;
-    }
-    
-    .stat-number.missing {
-        color: #dc3545;
-    }
-    
-    .stat-number.available {
-        color: #28a745;
-    }
-    
-    .stat-number.in-use {
-        color: #0d6efd;
-    }
-    
-    .stat-label {
-        text-transform: uppercase;
+    .stat-title {
         font-size: 0.9rem;
-        font-weight: 500;
         color: #666;
+        font-weight: 500;
+        text-transform: uppercase;
         letter-spacing: 0.5px;
     }
     
-    .chart-row {
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 600;
+        color: #333;
+        margin: 0.5rem 0;
+    }
+    
+    .stat-trend {
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .trend-up {
+        color: #28a745;
+    }
+    
+    .trend-down {
+        color: #dc3545;
+    }
+
+    .charts-grid {
         display: grid;
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
         gap: 1.5rem;
         margin-bottom: 2rem;
     }
     
     .chart-card {
-        background-color: white;
-        border-radius: 10px;
-        padding: 2rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
     }
     
-    .chart-card h2 {
-        margin-top: 0;
+    .chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 1.5rem;
-        font-size: 1.5rem;
+    }
+    
+    .chart-title {
+        font-size: 1.1rem;
+        font-weight: 600;
         color: #333;
+        margin: 0;
     }
     
     .chart-container {
         height: 300px;
         position: relative;
     }
-    
-    .actions-card {
-        background-color: white;
-        border-radius: 10px;
-        padding: 2rem;
-        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        margin-bottom: 2rem;
+
+    .quick-actions {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        border: 1px solid rgba(0, 0, 0, 0.05);
     }
     
-    .actions-card h2 {
-        margin-top: 0;
-        margin-bottom: 1.5rem;
-        font-size: 1.5rem;
+    .quick-actions h2 {
+        font-size: 1.1rem;
+        font-weight: 600;
         color: #333;
+        margin: 0 0 1rem;
     }
     
-    .btn-row {
-        display: flex;
+    .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
         gap: 1rem;
     }
     
-    .btn {
-        padding: 0.75rem 1.5rem;
-        border-radius: 4px;
-        font-weight: 500;
-        text-decoration: none;
-        cursor: pointer;
+    .action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
         border: none;
+        background: #1a237e;
+        color: white;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
         font-size: 1rem;
-        transition: background-color 0.2s;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     
-    .btn-primary {
-        background-color: #0176D3;
-        color: white;
+    .action-btn:hover {
+        background: #0d47a1;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
     }
     
-    .btn-primary:hover {
-        background-color: #0165b8;
+    .action-btn i {
+        font-size: 1.2rem;
     }
-    
-    .btn-success {
-        background-color: #28a745;
-        color: white;
-    }
-    
-    .btn-success:hover {
-        background-color: #218838;
-    }
-    
-    .btn-info {
-        background-color: #0d6efd;
-        color: white;
-    }
-    
-    .btn-info:hover {
-        background-color: #0b5ed7;
-    }
-    
+
     @media (max-width: 768px) {
-        .stats-row {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    
-    @media (max-width: 480px) {
-        .stats-row {
+        .charts-grid {
             grid-template-columns: 1fr;
-        }
-        
-        .btn-row {
-            flex-direction: column;
         }
     }
 </style>
@@ -209,47 +213,104 @@
 {% block content %}
 <div class="dashboard-container">
     <div class="dashboard-header">
-        <h1>Dashboard</h1>
-        <p>Welcome to the Pycube Mobile Device Management system. Monitor and track hospital devices.</p>
+        <h1>iPhone Tracking Dashboard</h1>
+        <p>Monitor and manage hospital iPhones with real-time tracking, compliance status, and movement history.</p>
     </div>
     
-    <div class="stats-row">
-        <div class="stat-card total">
-            <div class="stat-number total">{{ stats.total_count }}</div>
-            <div class="stat-label">Total Devices</div>
+    <div class="stats-grid">
+        <!-- Total Devices -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: #0176D3;">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <div class="stat-title">Total Devices</div>
+            </div>
+            <div class="stat-value">{{ stats.total_count }}</div>
+            <div class="stat-trend">
+                <i class="fas fa-arrow-up trend-up"></i>
+                <span>{{ stats.total_count - stats.missing_count }} Active</span>
+            </div>
         </div>
         
-        <div class="stat-card missing">
-            <div class="stat-number missing">{{ stats.missing_count }}</div>
-            <div class="stat-label">Missing Devices</div>
+        <!-- Missing Devices -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: #dc3545;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div class="stat-title">Missing Devices</div>
+            </div>
+            <div class="stat-value">{{ stats.missing_count }}</div>
+            <div class="stat-trend trend-down">
+                <i class="fas fa-arrow-up"></i>
+                <span>{{ (stats.missing_count / stats.total_count * 100)|round(1) }}% of Total</span>
+            </div>
         </div>
         
-        <div class="stat-card available">
-            <div class="stat-number available">{{ stats.status_counts.get('Available', 0) }}</div>
-            <div class="stat-label">Available Devices</div>
+        <!-- In-Facility Devices -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: #28a745;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-title">In-Facility Devices</div>
+            </div>
+            <div class="stat-value">{{ stats.status_counts.get('In-Facility', 0) }}</div>
+            <div class="stat-trend trend-up">
+                <i class="fas fa-arrow-up"></i>
+                <span>{{ (stats.status_counts.get('In-Facility', 0) / stats.total_count * 100)|round(1) }}% of Total</span>
+            </div>
         </div>
         
-        <div class="stat-card in-use">
-            <div class="stat-number in-use">{{ stats.status_counts.get('In-Use', 0) }}</div>
-            <div class="stat-label">In-Use Devices</div>
-        </div>
-    </div>
-    
-    <div class="chart-row">
-        <div class="chart-card">
-            <h2>Device Status Distribution</h2>
-            <div class="chart-container">
-                <canvas id="statusChart"></canvas>
+        <!-- Device Movements -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: #6f42c1;">
+                    <i class="fas fa-exchange-alt"></i>
+                </div>
+                <div class="stat-title">Daily Movements</div>
+            </div>
+            <div class="stat-value">{{ stats.movement_counts[-1].count if stats.movement_counts else 0 }}</div>
+            <div class="stat-trend">
+                <span>Last 24 Hours</span>
             </div>
         </div>
     </div>
     
-    <div class="actions-card">
+    <div class="charts-grid">
+        <!-- Device Status Distribution -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">Device Status Distribution</h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+        
+        <!-- Device Movement Trends -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3 class="chart-title">Device Movement Trends</h3>
+            </div>
+            <div class="chart-container">
+                <canvas id="movementChart"></canvas>
+            </div>
+        </div>
+    </div>
+    
+    <div class="quick-actions">
         <h2>Quick Actions</h2>
-        <div class="btn-row">
-            <a href="{{ url_for('devices.new') }}" class="btn btn-primary">Add New Device</a>
-            <a href="{{ url_for('devices.index') }}" class="btn btn-info">View All Devices</a>
-            <button id="scanBtn" class="btn btn-success">Scan RFID Tag</button>
+        <div class="actions-grid">
+            <button class="btn btn-dark" onclick="window.location.href='{{ url_for('devices.index') }}'">
+                <i class="fas fa-list me-2"></i>
+                View All Devices
+            </button>
+            <button class="btn btn-dark" onclick="window.location.href='{{ url_for('rfid.alerts') }}'">
+                <i class="fas fa-bell me-2"></i>
+                Monitor Alerts
+            </button>
         </div>
     </div>
 </div>
@@ -258,34 +319,82 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // Status Chart
+        // Status Distribution Chart
         const statusCtx = document.getElementById('statusChart').getContext('2d');
         const statusChart = new Chart(statusCtx, {
-            type: 'pie',
+            type: 'doughnut',
             data: {
-                labels: ['Available', 'In-Use', 'Maintenance', 'Missing'],
+                labels: ['In-Facility', 'Missing', 'Maintenance'],
                 datasets: [{
                     data: [
-                        {{ stats.status_counts.get('Available', 0) }},
-                        {{ stats.status_counts.get('In-Use', 0) }},
-                        {{ stats.status_counts.get('Maintenance', 0) }},
-                        {{ stats.status_counts.get('Missing', 0) }}
+                        {{ stats.status_counts.get('In-Facility', 0) }},
+                        {{ stats.status_counts.get('Missing', 0) }},
+                        {{ stats.status_counts.get('Maintenance', 0) }}
                     ],
                     backgroundColor: [
-                        '#28a745', // Success - Available
-                        '#0d6efd', // Info - In-Use
-                        '#ffc107', // Warning - Maintenance
-                        '#dc3545'  // Alert - Missing
+                        '#28a745',
+                        '#dc3545',
+                        '#ffc107'
                     ],
-                    borderWidth: 1
+                    borderWidth: 0
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                cutout: '70%',
                 plugins: {
                     legend: {
-                        position: 'right'
+                        position: 'right',
+                        labels: {
+                            padding: 20,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Movement Trends Chart
+        const movementCtx = document.getElementById('movementChart').getContext('2d');
+        const movementData = {{ stats.movement_counts|tojson }};
+        const movementChart = new Chart(movementCtx, {
+            type: 'line',
+            data: {
+                labels: movementData.map(item => new Date(item.date).toLocaleDateString()),
+                datasets: [{
+                    label: 'Device Movements',
+                    data: movementData.map(item => item.count),
+                    borderColor: '#0176D3',
+                    backgroundColor: 'rgba(1, 118, 211, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointBackgroundColor: '#0176D3'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            drawBorder: false
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
                     }
                 }
             }
@@ -293,11 +402,9 @@
         
         // RFID Scan button
         document.getElementById('scanBtn').addEventListener('click', function() {
-            // Simulate RFID scan - in a real app, this would connect to an RFID reader
             const rfidTag = prompt('Enter RFID tag to scan:');
             
             if (rfidTag) {
-                // Send to server
                 fetch('/devices/scan', {
                     method: 'POST',
                     headers: {
@@ -308,7 +415,6 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
-                        // Redirect to device details
                         window.location.href = `/devices/${data.device.id}`;
                     } else {
                         alert('Device not found for RFID tag: ' + rfidTag);

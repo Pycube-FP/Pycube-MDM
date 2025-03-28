@@ -24,14 +24,37 @@
         rows=devices,
         sort_by=sort_by,
         sort_dir=sort_dir,
-        empty_message='No devices found. <a href="' ~ url_for('devices.new') ~ '">Add a new device</a>.'
+        empty_message=('No devices found. <a href="' ~ url_for('devices.new') ~ '">Add a new device</a>.')|safe
     ) %}
         {% for device in devices %}
         <tr>
             <td>
                 {{ render_status_badge(device.status) }}
             </td>
-            <td>{{ device.manufacturer }} {{ device.model }}</td>
+            <td>
+                <div style="display: flex; align-items: center; gap: var(--spacing-sm);">
+                    <div style="width: 32px; height: 40px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        {% if 'iphone 15' in device.model|lower %}
+                            <img src="{{ url_for('static', filename='img/iphone15.png') }}"
+                                 alt="iPhone 15"
+                                 style="max-height: 40px; width: auto;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                            />
+                            <i class="fas fa-mobile-alt" style="display: none; font-size: 1.5rem; color: var(--gray-400);"></i>
+                        {% elif 'iphone 14' in device.model|lower %}
+                            <img src="{{ url_for('static', filename='img/iphone14.png') }}"
+                                 alt="iPhone 14"
+                                 style="max-height: 40px; width: auto;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+                            />
+                            <i class="fas fa-mobile-alt" style="display: none; font-size: 1.5rem; color: var(--gray-400);"></i>
+                        {% else %}
+                            <i class="fas fa-mobile-alt" style="font-size: 1.5rem; color: var(--gray-400);"></i>
+                        {% endif %}
+                    </div>
+                    <span>{{ device.model }}</span>
+                </div>
+            </td>
             <td>{{ device.serial_number }}</td>
             <td>{{ device.assigned_to or 'Unassigned' }}</td>
             <td>

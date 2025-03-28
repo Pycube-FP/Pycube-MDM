@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Edit Device - Pycube MDM{% endblock %}
+{% block title %}Edit {{ device.model }} - Pycube MDM{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -31,128 +31,133 @@
 {% block content %}
 <div class="card">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-        <h1>Edit Device</h1>
         <div>
-            <a href="{{ url_for('devices.show', device_id=device.id) }}" class="btn btn-info">View Details</a>
-            <a href="{{ url_for('devices.index') }}" class="btn btn-info">Back to Devices</a>
+            <h1>Edit {{ device.model }}</h1>
+            <p class="text-muted mb-0">Update Device Details</p>
+        </div>
+        <div>
+            <a href="{{ url_for('devices.show', device_id=device.id) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Device
+            </a>
         </div>
     </div>
-    
-    <form action="{{ url_for('devices.update', device_id=device.id) }}" method="POST">
-        <div class="row">
-            <div class="col-6">
-                <div class="form-group">
-                    <label for="serial_number" class="required">Serial Number</label>
-                    <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ device.serial_number }}" required>
+
+    <div class="card-body">
+        <form action="{{ url_for('devices.update', device_id=device.id) }}" method="POST">
+            <div class="row">
+                <div class="col-6">
+                    <div class="form-group">
+                        <label for="serial_number" class="required">Serial Number</label>
+                        <input type="text" class="form-control" id="serial_number" name="serial_number" value="{{ device.serial_number }}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="model" class="required">Model</label>
+                        <input type="text" class="form-control" id="model" name="model" value="{{ device.model }}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="manufacturer" class="required">Manufacturer</label>
+                        <input type="text" class="form-control" id="manufacturer" name="manufacturer" value="{{ device.manufacturer }}" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="rfid_tag" class="required">EPC Code</label>
+                        <div style="display: flex; gap: var(--spacing-xs);">
+                            <input type="text" class="form-control" id="rfid_tag" name="rfid_tag" value="{{ device.rfid_tag }}" required>
+                            <button type="button" id="scanBtn" class="btn btn-primary" style="white-space: nowrap;">Scan EPC</button>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label for="model" class="required">Model</label>
-                    <input type="text" class="form-control" id="model" name="model" value="{{ device.model }}" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="manufacturer" class="required">Manufacturer</label>
-                    <input type="text" class="form-control" id="manufacturer" name="manufacturer" value="{{ device.manufacturer }}" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="rfid_tag" class="required">EPC Code</label>
-                    <div style="display: flex; gap: var(--spacing-xs);">
-                        <input type="text" class="form-control" id="rfid_tag" name="rfid_tag" value="{{ device.rfid_tag }}" required>
-                        <button type="button" id="scanBtn" class="btn btn-primary" style="white-space: nowrap;">Scan EPC</button>
+                <div class="col-6">
+                    <div class="form-group">
+                        <label for="status">Status</label>
+                        <select class="form-control" id="status" name="status">
+                            <option value="Available" {% if device.status == 'Available' %}selected{% endif %}>Available</option>
+                            <option value="In-Use" {% if device.status == 'In-Use' %}selected{% endif %}>In-Use</option>
+                            <option value="Maintenance" {% if device.status == 'Maintenance' %}selected{% endif %}>Maintenance</option>
+                            <option value="Missing" {% if device.status == 'Missing' %}selected{% endif %}>Missing</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="hospital_id">Hospital</label>
+                        <select class="form-control" id="hospital_id" name="hospital_id">
+                            <option value="">-- Select Hospital --</option>
+                            {% for hospital in hospitals %}
+                            <option value="{{ hospital.id }}" {% if device.hospital_id == hospital.id %}selected{% endif %}>{{ hospital.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location_id">Location</label>
+                        <select class="form-control" id="location_id" name="location_id">
+                            <option value="">-- Select Location --</option>
+                            {% for location in locations %}
+                            <option value="{{ location.id }}" {% if device.location_id == location.id %}selected{% endif %}>{{ location.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="assigned_to">Assigned To</label>
+                        <input type="text" class="form-control" id="assigned_to" name="assigned_to" value="{{ device.assigned_to or '' }}">
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label for="purchase_date">Purchase Date</label>
+                                <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ device.purchase_date|string if device.purchase_date else '' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label for="last_maintenance_date">Last Maintenance</label>
+                                <input type="date" class="form-control" id="last_maintenance_date" name="last_maintenance_date" value="{{ device.last_maintenance_date|string if device.last_maintenance_date else '' }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label for="eol_date">End of Life Date</label>
+                                <input type="date" class="form-control" id="eol_date" name="eol_date" value="{{ device.eol_date|string if device.eol_date else '' }}">
+                                <div class="eol-warning">Typically 5-6 years from purchase date</div>
+                            </div>
+                        </div>
+                        
+                        <div class="col-6">
+                            <div class="form-group">
+                                <label for="eol_status">EOL Status</label>
+                                <select class="form-control" id="eol_status" name="eol_status">
+                                    <option value="Active" {% if device.eol_status == 'Active' %}selected{% endif %}>Active</option>
+                                    <option value="Warning" {% if device.eol_status == 'Warning' %}selected{% endif %}>Warning</option>
+                                    <option value="Critical" {% if device.eol_status == 'Critical' %}selected{% endif %}>Critical</option>
+                                    <option value="Expired" {% if device.eol_status == 'Expired' %}selected{% endif %}>Expired</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="eol_notes">EOL Notes</label>
+                        <textarea class="form-control" id="eol_notes" name="eol_notes" rows="2">{{ device.eol_notes or '' }}</textarea>
                     </div>
                 </div>
             </div>
             
-            <div class="col-6">
-                <div class="form-group">
-                    <label for="status">Status</label>
-                    <select class="form-control" id="status" name="status">
-                        <option value="Available" {% if device.status == 'Available' %}selected{% endif %}>Available</option>
-                        <option value="In-Use" {% if device.status == 'In-Use' %}selected{% endif %}>In-Use</option>
-                        <option value="Maintenance" {% if device.status == 'Maintenance' %}selected{% endif %}>Maintenance</option>
-                        <option value="Missing" {% if device.status == 'Missing' %}selected{% endif %}>Missing</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="hospital_id">Hospital</label>
-                    <select class="form-control" id="hospital_id" name="hospital_id">
-                        <option value="">-- Select Hospital --</option>
-                        {% for hospital in hospitals %}
-                        <option value="{{ hospital.id }}" {% if device.hospital_id == hospital.id %}selected{% endif %}>{{ hospital.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="location_id">Location</label>
-                    <select class="form-control" id="location_id" name="location_id">
-                        <option value="">-- Select Location --</option>
-                        {% for location in locations %}
-                        <option value="{{ location.id }}" {% if device.location_id == location.id %}selected{% endif %}>{{ location.name }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label for="assigned_to">Assigned To</label>
-                    <input type="text" class="form-control" id="assigned_to" name="assigned_to" value="{{ device.assigned_to or '' }}">
-                </div>
-                
-                <div class="row">
-                    <div class="col-6">
-                        <div class="form-group">
-                            <label for="purchase_date">Purchase Date</label>
-                            <input type="date" class="form-control" id="purchase_date" name="purchase_date" value="{{ device.purchase_date|string if device.purchase_date else '' }}">
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="form-group">
-                            <label for="last_maintenance_date">Last Maintenance</label>
-                            <input type="date" class="form-control" id="last_maintenance_date" name="last_maintenance_date" value="{{ device.last_maintenance_date|string if device.last_maintenance_date else '' }}">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="row">
-                    <div class="col-6">
-                        <div class="form-group">
-                            <label for="eol_date">End of Life Date</label>
-                            <input type="date" class="form-control" id="eol_date" name="eol_date" value="{{ device.eol_date|string if device.eol_date else '' }}">
-                            <div class="eol-warning">Typically 5-6 years from purchase date</div>
-                        </div>
-                    </div>
-                    
-                    <div class="col-6">
-                        <div class="form-group">
-                            <label for="eol_status">EOL Status</label>
-                            <select class="form-control" id="eol_status" name="eol_status">
-                                <option value="Active" {% if device.eol_status == 'Active' %}selected{% endif %}>Active</option>
-                                <option value="Warning" {% if device.eol_status == 'Warning' %}selected{% endif %}>Warning</option>
-                                <option value="Critical" {% if device.eol_status == 'Critical' %}selected{% endif %}>Critical</option>
-                                <option value="Expired" {% if device.eol_status == 'Expired' %}selected{% endif %}>Expired</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label for="eol_notes">EOL Notes</label>
-                    <textarea class="form-control" id="eol_notes" name="eol_notes" rows="2">{{ device.eol_notes or '' }}</textarea>
-                </div>
+            <hr style="margin: var(--spacing-lg) 0;">
+            
+            <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
+                <button type="submit" class="btn btn-primary">Save Changes</button>
             </div>
-        </div>
-        
-        <hr style="margin: var(--spacing-lg) 0;">
-        
-        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
-            <a href="{{ url_for('devices.show', device_id=device.id) }}" class="btn btn-info">Cancel</a>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-        </div>
-    </form>
+        </form>
+    </div>
 </div>
 {% endblock %}
 

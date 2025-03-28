@@ -11,193 +11,425 @@
         font-weight: 500;
         font-size: 0.9em;
     }
-    .eol-active { background-color: #d1fae5; color: #065f46; }
-    .eol-warning { background-color: #fef3c7; color: #92400e; }
-    .eol-critical { background-color: #fee2e2; color: #991b1b; }
-    .eol-expired { background-color: #fee2e2; color: #991b1b; }
+    
+    .eol-active { 
+        background-color: #d1fae5; 
+        color: #065f46; 
+    }
+    
+    .eol-warning { 
+        background-color: #fef3c7; 
+        color: #92400e; 
+    }
+    
+    .eol-critical { 
+        background-color: #fee2e2; 
+        color: #991b1b; 
+    }
+    
+    .eol-expired { 
+        background-color: #fee2e2; 
+        color: #991b1b; 
+    }
+
+    .timeline-container {
+        margin-top: var(--spacing-md);
+        padding: var(--spacing-lg);
+        background-color: white;
+        border-radius: var(--border-radius-md);
+        width: 100%;
+        overflow: hidden;
+    }
+    
+    .timeline-bar {
+        position: relative;
+        height: 8px;
+        border-radius: 4px;
+        margin: 60px 0 70px;
+        width: 100%;
+        max-width: 100%;
+        background: linear-gradient(to right, #22c55e 0%, #22c55e 80%, #f59e0b 80%, #f59e0b 100%, #ef4444 100%);
+    }
+    
+    .timeline-progress {
+        position: absolute;
+        height: 100%;
+        width: 0;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        background: rgba(0, 0, 0, 0.2);
+        right: 0;
+    }
+    
+    .timeline-marker {
+        position: absolute;
+        top: -35px;
+        transform: translateX(-50%);
+        font-size: 0.85em;
+        color: #6b7280;
+        text-align: center;
+        width: 120px;
+        white-space: nowrap;
+    }
+    
+    .timeline-year {
+        position: absolute;
+        bottom: -35px;
+        transform: translateX(-50%);
+        font-size: 0.85em;
+        color: #6b7280;
+        text-align: center;
+        width: 60px;
+    }
+    
+    .timeline-current {
+        position: absolute;
+        top: -45px;
+        transform: translateX(-50%);
+        font-weight: bold;
+        color: #1f2937;
+        background: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .timeline-current::after {
+        content: '';
+        position: absolute;
+        bottom: -16px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 16px;
+        background-color: currentColor;
+    }
+    
+    .timeline-legend {
+        display: flex;
+        justify-content: center;
+        gap: 32px;
+        margin-top: var(--spacing-md);
+        font-size: 0.9em;
+    }
+    
+    .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 2px;
+    }
+
+    /* Device Information Card Styles */
+    .device-info-card {
+        background-color: white;
+        padding: var(--spacing-lg);
+        border-radius: var(--border-radius-lg);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+        border: 1px solid var(--border-color);
+        margin-bottom: var(--spacing-lg);
+    }
+
+    .device-info-section {
+        background-color: var(--gray-50);
+        padding: var(--spacing-md);
+        border-radius: var(--border-radius-md);
+    }
+
+    .section-header {
+        color: var(--gray-800);
+        font-size: 1rem;
+        margin-bottom: var(--spacing-md);
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-xs);
+        padding-bottom: var(--spacing-xs);
+        border-bottom: 2px solid var(--gray-100);
+    }
+
+    .info-label {
+        font-size: 0.85rem;
+        color: var(--gray-600);
+    }
+
+    .info-value {
+        font-family: var(--font-mono);
+        color: var(--gray-900);
+        margin-top: 2px;
+    }
+
+    .device-name-card {
+        text-align: center;
+        padding: var(--spacing-md);
+        background-color: var(--gray-50);
+        border-radius: var(--border-radius-md);
+        width: 100%;
+    }
+
+    .device-name {
+        color: var(--gray-900);
+        margin-bottom: var(--spacing-xs);
+        font-size: 1.1rem;
+    }
+
+    .device-added {
+        color: var(--gray-500);
+        font-size: 0.85rem;
+    }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: var(--spacing-md);
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="card">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
-            <div>
-                <h1>Device Details</h1>
-                <p class="text-muted mb-0">{{ device.manufacturer }} {{ device.model }}</p>
-            </div>
-            <div style="display: flex; gap: var(--spacing-sm);">
-                <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Back to Devices
-                </a>
-                <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning">Edit Device</a>
-                <button class="btn btn-danger delete-device" data-id="{{ device.id }}">Delete Device</button>
-            </div>
+<div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
+        <div>
+            <h1>Device Details</h1>
         </div>
-        
-        <div class="row">
-            <div class="col-6">
-                <div style="display: flex; align-items: center; margin-bottom: var(--spacing-md);">
-                    <div class="status-indicator status-{{ device.status.lower() }}" style="width: 16px; height: 16px;"></div>
-                    <span style="font-size: var(--font-size-large); font-weight: 600; margin-left: var(--spacing-sm);">
-                        {{ device.status }}
-                    </span>
+        <div style="display: flex; gap: var(--spacing-sm);">
+            <a href="{{ url_for('devices.edit', device_id=device.id) }}" class="btn btn-warning">Edit Device</a>
+            <button id="scanBtn" class="btn btn-primary">Re-scan RFID Tag</button>
+            <button class="btn btn-danger delete-device" data-id="{{ device.id }}">Delete Device</button>
+            <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Devices
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-12">
+            <!-- Main Device Information Card -->
+            <div class="device-info-card">
+                <!-- Device Name Header -->
+                <div style="margin-bottom: var(--spacing-lg); text-align: center;">
+                    <h2 style="color: var(--gray-900); margin-bottom: var(--spacing-xs);">{{ device.manufacturer }} {{ device.model }}</h2>
+                    <div style="display: flex; align-items: center; justify-content: center; gap: var(--spacing-sm);">
+                        <span class="badge {% if device.status == 'In-Facility' %}bg-success
+                                     {% else %}bg-danger{% endif %}"
+                              style="font-size: 0.85rem; padding: 0.35em 0.65em;">
+                            {{ device.status }}
+                        </span>
+                        <span style="color: var(--gray-500); font-size: 0.85rem;">Added {{ device.created_at.strftime('%m/%d/%Y') if device.created_at else 'Unknown' }}</span>
+                    </div>
                 </div>
-                
-                <h3>{{ device.manufacturer }} {{ device.model }}</h3>
-                
-                <table style="width: 100%; margin-top: var(--spacing-md);">
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Serial Number:</td>
-                        <td>{{ device.serial_number }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EPC Code:</td>
-                        <td>{{ device.rfid_tag }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Barcode:</td>
-                        <td>{{ device.barcode }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Hospital:</td>
-                        <td>
-                            {% if device.hospital_id %}
-                                <a href="{{ url_for('hospitals.show', hospital_id=device.hospital_id) }}">
-                                    {{ device.hospital_name }}
-                                </a>
-                            {% else %}
-                                Not assigned
-                            {% endif %}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Location:</td>
-                        <td>{{ device.location_name if device.location_name else 'Not assigned' }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Assigned To:</td>
-                        <td>{{ device.assigned_to or 'Unassigned' }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Purchase Date:</td>
-                        <td>{{ device.purchase_date.strftime('%m/%d/%Y') if device.purchase_date else 'Unknown' }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Last Maintenance:</td>
-                        <td>{{ device.last_maintenance_date.strftime('%m/%d/%Y') if device.last_maintenance_date else 'No maintenance records' }}</td>
-                    </tr>
-                    <tr>
-                        <td style="padding: var(--spacing-xs) 0; font-weight: 500;">Added On:</td>
-                        <td>{{ device.created_at.strftime('%m/%d/%Y %I:%M %p') if device.created_at else 'Unknown' }}</td>
-                    </tr>
-                </table>
 
-                <div style="margin-top: var(--spacing-lg); padding: var(--spacing-md); background-color: var(--primary-50); border-radius: var(--border-radius-md);">
-                    <h4 style="margin-bottom: var(--spacing-md);">End of Life Information</h4>
-                    <table style="width: 100%;">
-                        <tr>
-                            <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Date:</td>
-                            <td>{{ device.eol_date.strftime('%m/%d/%Y') if device.eol_date else 'Not set' }}</td>
-                        </tr>
-                        <tr>
-                            <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Status:</td>
-                            <td>
-                                {% if device.eol_status %}
-                                <span class="eol-status eol-{{ device.eol_status.lower() }}">{{ device.eol_status }}</span>
+                <div style="display: grid; grid-template-columns: 240px 1fr; gap: var(--spacing-xl);">
+                    <!-- Left Column - Device Image -->
+                    <div style="background: white;  padding: var(--spacing-md);">
+                        <div style="width: 100%; max-width: 220px; aspect-ratio: 0.52; display: flex; align-items: center; justify-content: center; position: relative;">
+                            {% if device.model %}
+                                {% if 'iphone 15' in device.model|lower %}
+                                    <img src="{{ url_for('static', filename='img/iphone15.png') }}"
+                                         alt="iPhone 15"
+                                         style="width: auto; height: 100%; object-fit: contain; transform: scale(0.95);"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                    />
+                                {% elif 'iphone 14' in device.model|lower %}
+                                    <img src="{{ url_for('static', filename='img/iphone14.png') }}"
+                                         alt="iPhone 14"
+                                         style="width: auto; height: 100%; object-fit: contain; transform: scale(0.95);"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                    />
                                 {% else %}
-                                Not set
+                                    <i class="fas fa-mobile-alt" style="font-size: 6rem; color: var(--gray-400);"></i>
                                 {% endif %}
-                            </td>
-                        </tr>
-                        {% if device.eol_notes %}
-                        <tr>
-                            <td style="padding: var(--spacing-xs) 0; font-weight: 500;">EOL Notes:</td>
-                            <td>{{ device.eol_notes }}</td>
-                        </tr>
-                        {% endif %}
-                    </table>
-                </div>
-            </div>
-            
-            <div class="col-6">
-                <div class="card" style="background-color: var(--primary-50); padding: var(--spacing-md);">
-                    <h3>Quick Actions</h3>
-                    <div style="display: flex; flex-direction: column; gap: var(--spacing-sm); margin-top: var(--spacing-md);">
-                        <button id="scanBtn" class="btn btn-success">Re-scan RFID Tag</button>
-                        
-                        {% if device.status == 'Missing' %}
-                        <button id="markFoundBtn" class="btn btn-primary">Mark as Found</button>
-                        {% elif device.status == 'Available' %}
-                        <button id="markInUseBtn" class="btn btn-info">Mark as In-Use</button>
-                        {% elif device.status == 'In-Use' %}
-                        <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
-                        <button id="markMaintenanceBtn" class="btn btn-warning">Mark for Maintenance</button>
-                        {% elif device.status == 'Maintenance' %}
-                        <button id="markAvailableBtn" class="btn btn-success">Mark as Available</button>
-                        {% endif %}
+                            {% else %}
+                                <i class="fas fa-mobile-alt" style="font-size: 6rem; color: var(--gray-400);"></i>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Right Column - Device Details -->
+                    <div style="display: flex; flex-direction: column; gap: var(--spacing-lg);">
+                        <!-- Device Information -->
+                        <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius-lg); box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: var(--spacing-lg);">
+                            <h4 class="section-header">
+                                <i class="fas fa-info-circle"></i>
+                                Device Information
+                            </h4>
+                            <div class="info-grid">
+                                <div class="device-info-section">
+                                    <span class="info-label">Serial Number</span>
+                                    <div class="info-value">{{ device.serial_number }}</div>
+                                </div>
+                                <div class="device-info-section">
+                                    <span class="info-label">EPC Code</span>
+                                    <div class="info-value">{{ device.rfid_tag }}</div>
+                                </div>
+                                <div class="device-info-section">
+                                    <span class="info-label">Barcode</span>
+                                    <div class="info-value">{{ device.barcode }}</div>
+                                </div>
+                                <div class="device-info-section">
+                                    <span class="info-label">Purchase Date</span>
+                                    <div class="info-value" style="font-family: inherit;">{{ device.purchase_date.strftime('%m/%d/%Y') if device.purchase_date else 'Unknown' }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Assignment Information -->
+                        <div style="background: white; border: 1px solid var(--border-color); border-radius: var(--border-radius-lg); box-shadow: 0 2px 4px rgba(0,0,0,0.05); padding: var(--spacing-lg);">
+                            <h4 class="section-header">
+                                <i class="fas fa-hospital"></i>
+                                Assignment Details
+                            </h4>
+                            <div class="info-grid">
+                                <div class="device-info-section">
+                                    <span class="info-label">Hospital</span>
+                                    <div class="info-value" style="font-family: inherit;">
+                                        {% if device.hospital_id %}
+                                            <a href="{{ url_for('hospitals.show', hospital_id=device.hospital_id) }}" style="color: var(--primary-600); text-decoration: none; font-weight: 500;">
+                                                {{ device.hospital_name }}
+                                            </a>
+                                        {% else %}
+                                            <span style="color: var(--gray-500);">Not assigned</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <div class="device-info-section">
+                                    <span class="info-label">Location</span>
+                                    <div class="info-value" style="font-family: inherit;">
+                                        {{ device.location_name if device.location_name else 'Not assigned' }}
+                                    </div>
+                                </div>
+                                <div class="device-info-section">
+                                    <span class="info-label">Assigned To</span>
+                                    <div class="info-value" style="font-family: inherit;">
+                                        {{ device.assigned_to or 'Unassigned' }}
+                                    </div>
+                                </div>
+                                <div class="device-info-section">
+                                    <span class="info-label">Last Maintenance</span>
+                                    <div class="info-value" style="font-family: inherit;">
+                                        {{ device.last_maintenance_date.strftime('%m/%d/%Y') if device.last_maintenance_date else 'No maintenance records' }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <div style="margin-top: var(--spacing-lg); padding: var(--spacing-lg); background-color: var(--primary-50); border-radius: var(--border-radius-md); width: 100%;">
+                <h4 style="margin-bottom: var(--spacing-lg);">iPhone Compliance Timeline</h4>
+                
+                {% if device.manufacturer|lower == 'apple' and 'iphone' in device.model|lower %}
+                <div class="timeline-container">
+                    <div style="position: relative; width: 100%; padding: 0 60px;">
+                        <div class="timeline-bar">
+                            <div class="timeline-progress" style="width: {{ 100 - (compliance_percent if compliance_percent is not none else 0) }}%"></div>
+                            <span class="timeline-marker" style="left: 0%">Release</span>
+                            <span class="timeline-marker" style="left: 80%">Limited Support</span>
+                            <span class="timeline-marker" style="left: 100%">End of Life</span>
+                            
+                            {% if device.purchase_date %}
+                                {% set release_year = device.purchase_date.year %}
+                                <span class="timeline-year" style="left: 0%">{{ release_year }}</span>
+                                <span class="timeline-year" style="left: 20%">{{ release_year + 1 }}</span>
+                                <span class="timeline-year" style="left: 40%">{{ release_year + 2 }}</span>
+                                <span class="timeline-year" style="left: 60%">{{ release_year + 3 }}</span>
+                                <span class="timeline-year" style="left: 80%">{{ release_year + 4 }}</span>
+                                <span class="timeline-year" style="left: 100%">{{ release_year + 5 }}</span>
+                            {% endif %}
+
+                            {% if compliance_percent is not none %}
+                            <span class="timeline-current" style="left: {{ compliance_percent }}%">Current</span>
+                            {% endif %}
+                        </div>
+                        <div class="timeline-legend">
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #22c55e;"></div>
+                                <span>Fully Supported (4 years)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #f59e0b;"></div>
+                                <span>Limited Support (1 year)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color" style="background-color: #ef4444;"></div>
+                                <span>End of Life</span>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-sm text-gray-600" style="text-align: center;">
+                            Based on Apple's typical 5-year support cycle. Timeline shows expected lifecycle from device release to end of life.
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
         </div>
         
-        <hr style="margin: var(--spacing-lg) 0;">
-        
-        <h2>Assignment History</h2>
-        {% if assignments %}
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Assigned To</th>
-                    <th>Department</th>
-                    <th>Assigned At</th>
-                    <th>Status</th>
-                    <th>Returned At</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for assignment in assignments %}
-                <tr>
-                    <td>{{ assignment.nurse_name }}</td>
-                    <td>{{ assignment.department }}</td>
-                    <td>{{ assignment.created_at.strftime('%m/%d/%Y %I:%M %p') if assignment.created_at else 'Unknown' }}</td>
-                    <td>{{ assignment.status }}</td>
-                    <td>{{ assignment.returned_at.strftime('%m/%d/%Y %I:%M %p') if assignment.returned_at else '-' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p>No assignment history found for this device.</p>
-        {% endif %}
-        
-        <hr style="margin: var(--spacing-lg) 0;">
-        
-        <h2>Reader Events</h2>
-        
-        {% if movements %}
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>Timestamp</th>
-                    <th>Location</th>
-                    <th>Reader ID</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for movement in movements %}
-                <tr>
-                    <td>{{ movement.timestamp.strftime('%m/%d/%Y %I:%M %p') if movement.timestamp else 'Unknown' }}</td>
-                    <td>{{ movement.location_name or 'Unknown' }}</td>
-                    <td>{{ movement.reader_id or 'Unknown' }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-        {% else %}
-        <p>No reader events found for this device.</p>
-        {% endif %}
+        <div class="col-6">
+            <!-- Remove the Quick Actions div from col-6 -->
+        </div>
     </div>
+    
+    <hr style="margin: var(--spacing-lg) 0;">
+    
+    <h2>Assignment History</h2>
+    {% if assignments %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Assigned To</th>
+                <th>Department</th>
+                <th>Assigned At</th>
+                <th>Status</th>
+                <th>Returned At</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for assignment in assignments %}
+            <tr>
+                <td>{{ assignment.nurse_name }}</td>
+                <td>{{ assignment.department }}</td>
+                <td>{{ assignment.created_at.strftime('%m/%d/%Y %I:%M %p') if assignment.created_at else 'Unknown' }}</td>
+                <td>{{ assignment.status }}</td>
+                <td>{{ assignment.returned_at.strftime('%m/%d/%Y %I:%M %p') if assignment.returned_at else '-' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No assignment history found for this device.</p>
+    {% endif %}
+    
+    <hr style="margin: var(--spacing-lg) 0;">
+    
+    <h2>Reader Events</h2>
+    
+    {% if movements %}
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Location</th>
+                <th>Reader ID</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for movement in movements %}
+            <tr>
+                <td>{{ movement.timestamp.strftime('%m/%d/%Y %I:%M %p') if movement.timestamp else 'Unknown' }}</td>
+                <td>{{ movement.location_name or 'Unknown' }}</td>
+                <td>{{ movement.reader_id or 'Unknown' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No reader events found for this device.</p>
+    {% endif %}
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -251,31 +483,14 @@
         // Status change buttons
         {% if device.status == 'Missing' %}
         document.getElementById('markFoundBtn').addEventListener('click', function() {
-            if (confirm('Mark this device as found and available?')) {
-                updateDeviceStatus('Available');
+            if (confirm('Mark this device as found and in facility?')) {
+                updateDeviceStatus('In-Facility');
             }
         });
-        {% elif device.status == 'Available' %}
-        document.getElementById('markInUseBtn').addEventListener('click', function() {
-            if (confirm('Mark this device as in use?')) {
-                updateDeviceStatus('In-Use');
-            }
-        });
-        {% elif device.status == 'In-Use' %}
-        document.getElementById('markAvailableBtn').addEventListener('click', function() {
-            if (confirm('Mark this device as available?')) {
-                updateDeviceStatus('Available');
-            }
-        });
-        document.getElementById('markMaintenanceBtn').addEventListener('click', function() {
-            if (confirm('Mark this device for maintenance?')) {
-                updateDeviceStatus('Maintenance');
-            }
-        });
-        {% elif device.status == 'Maintenance' %}
-        document.getElementById('markAvailableBtn').addEventListener('click', function() {
-            if (confirm('Mark this device as available?')) {
-                updateDeviceStatus('Available');
+        {% elif device.status == 'In-Facility' %}
+        document.getElementById('markMissingBtn').addEventListener('click', function() {
+            if (confirm('Mark this device as missing?')) {
+                updateDeviceStatus('Missing');
             }
         });
         {% endif %}

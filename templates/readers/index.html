@@ -25,7 +25,7 @@
             {'key': 'last_heartbeat', 'label': 'Last Heartbeat', 'sortable': true}
         ],
         rows=readers,
-        empty_message='No readers found. <a href="' ~ url_for('readers.create') ~ '">Add a new reader</a>.'
+        empty_message=('No readers found. <a href="' ~ url_for('readers.create') ~ '">Add a new reader</a>.')|safe
     ) %}
         {% for reader in readers %}
         <tr>

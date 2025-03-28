@@ -4,8 +4,31 @@ from models.device import Device
 from routes.auth import login_required, role_required
 from datetime import datetime
 import uuid
+import re
 
 devices_bp = Blueprint('devices', __name__, url_prefix='/devices')
+
+def calculate_iphone_compliance(model):
+    """Calculate compliance percentage for iPhone models"""
+    # Extract iPhone model number using regex
+    model_match = re.search(r'iPhone (\d+)', model, re.IGNORECASE)
+    if not model_match:
+        return None
+    
+    model_number = int(model_match.group(1))
+    
+    # Define iPhone model compliance ranges
+    # Based on current iOS support and lifecycle
+    if model_number >= 15:  # Latest models
+        return 20  # Early in lifecycle
+    elif model_number >= 13:  # Recent models
+        return 40  # Active support
+    elif model_number >= 11:  # Mid-range models
+        return 60  # Mid lifecycle
+    elif model_number >= 8:  # Aging models
+        return 80  # Limited support
+    else:  # Old models
+        return 100  # End of life
 
 @devices_bp.route('/')
 @login_required
@@ -50,8 +73,11 @@ def new():
     """Render the add device form"""
     db_service = DBService()
     locations = db_service.get_all_locations()
+    hospitals = db_service.get_all_hospitals()
     
-    return render_template('devices/new.html', locations=locations)
+    return render_template('devices/new.html', 
+                         locations=locations,
+                         hospitals=hospitals)
 
 @devices_bp.route('/', methods=['POST'])
 @login_required
@@ -64,8 +90,9 @@ def create():
         manufacturer = request.form.get('manufacturer')
         rfid_tag = request.form.get('rfid_tag')
         status = request.form.get('status', 'Available')
-        location_id = request.form.get('location_id') or None
-        assigned_to = request.form.get('assigned_to') or None
+        hospital_id = request.form.get('hospital_id')
+        location_id = request.form.get('location_id')
+        assigned_to = request.form.get('assigned_to')
         purchase_date_str = request.form.get('purchase_date')
         maintenance_date_str = request.form.get('last_maintenance_date')
         eol_date_str = request.form.get('eol_date')
@@ -84,6 +111,7 @@ def create():
             manufacturer=manufacturer,
             rfid_tag=rfid_tag,
             status=status,
+            hospital_id=hospital_id,
             location_id=location_id,
             assigned_to=assigned_to,
             purchase_date=purchase_date,
@@ -121,10 +149,16 @@ def show(device_id):
     # Get assignment history
     assignments = db_service.get_device_assignments(device_id)
     
+    # Calculate compliance percentage for iPhones
+    compliance_percent = None
+    if device_data['manufacturer'].lower() == 'apple' and 'iphone' in device_data['model'].lower():
+        compliance_percent = calculate_iphone_compliance(device_data['model'])
+    
     return render_template('devices/show.html', 
                          device=device_data, 
                          movements=movements,
-                         assignments=assignments)
+                         assignments=assignments,
+                         compliance_percent=compliance_percent)
 
 @devices_bp.route('/<device_id>/edit', methods=['GET'])
 @login_required
@@ -138,8 +172,12 @@ def edit(device_id):
         return redirect(url_for('devices.index'))
     
     locations = db_service.get_all_locations()
+    hospitals = db_service.get_all_hospitals()
     
-    return render_template('devices/edit.html', device=device_data, locations=locations)
+    return render_template('devices/edit.html', 
+                         device=device_data, 
+                         locations=locations,
+                         hospitals=hospitals)
 
 @devices_bp.route('/<device_id>', methods=['POST'])
 @login_required
@@ -159,6 +197,7 @@ def update(device_id):
         manufacturer = request.form.get('manufacturer', existing_device['manufacturer'])
         rfid_tag = request.form.get('rfid_tag', existing_device['rfid_tag'])
         status = request.form.get('status', existing_device['status'])
+        hospital_id = request.form.get('hospital_id') if request.form.get('hospital_id') else existing_device['hospital_id']
         location_id = request.form.get('location_id') if request.form.get('location_id') else existing_device['location_id']
         assigned_to = request.form.get('assigned_to') if request.form.get('assigned_to') else existing_device['assigned_to']
         purchase_date_str = request.form.get('purchase_date')
@@ -192,6 +231,7 @@ def update(device_id):
             rfid_tag=rfid_tag,
             barcode=existing_device['barcode'],  # Preserve existing barcode
             status=status,
+            hospital_id=hospital_id,
             location_id=location_id,
             assigned_to=assigned_to,
             purchase_date=purchase_date,
