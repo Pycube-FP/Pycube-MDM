@@ -4,6 +4,7 @@ import sys
 from datetime import datetime, timedelta
 import uuid
 import random
+import pytz
 
 # Add pycube_mdm directory to path for relative imports
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -17,95 +18,123 @@ from models.reader import Reader
 from models.reader_event import ReaderEvent
 from models.rfid_alert import RFIDAlert
 
+# Configure timezone
+TIMEZONE = pytz.timezone('America/New_York')
+
+def get_current_est_time():
+    """Get current time in Eastern Time"""
+    return datetime.now(TIMEZONE)
+
 def format_date(date):
     """Return the date object as is, since the database expects datetime objects"""
-    return date if date else None
+    if not date:
+        return None
+    if isinstance(date, datetime) and not date.tzinfo:
+        # If date has no timezone info, assume it's in EST
+        return TIMEZONE.localize(date)
+    return date
 
 def create_test_data():
     """Create test data in the database"""
     db_service = DBService()
     
-    try:
-        # Create a hospital
-        hospital = Hospital(
-            name='BayCare Main Hospital',
-            code='BCH',  # Added required code field
-            address='2985 Drew St, Clearwater, FL 33759',
-            city='Clearwater',  # Added city
-            state='FL',  # Added state
-            zip_code='33759'  # Added zip code
-        )
-        hospital_id = db_service.create_hospital(hospital)
-        print(f"Created hospital with ID: {hospital_id}")
-        
-        # Create two locations in the hospital
-        location1 = Location(
-            name='Emergency Room',
-            type='Department',  # Required field from the enum
+    # Create a hospital
+    hospital = Hospital(
+        name="BayCare Main Hospital",
+        code="BCH001",
+        city="Tampa",
+        state="FL",
+        zip_code="33607",
+        created_at=get_current_est_time(),
+        updated_at=get_current_est_time()
+    )
+    hospital_id = db_service.create_hospital(hospital)
+    print(f"Created hospital: {hospital.name}")
+
+    # Create two locations
+    locations = []
+    location_names = ["Emergency Room", "ICU"]
+    for name in location_names:
+        location = Location(
+            name=name,
+            type="Department",
+            building="Main Building",
+            floor="1st Floor",
+            room=name,
             hospital_id=hospital_id,
-            building='Main Building',
-            floor='1',
-            room='ER-101'
+            created_at=get_current_est_time(),
+            updated_at=get_current_est_time()
         )
-        location1_id = db_service.create_location(location1)
-        print(f"Created location 1 with ID: {location1_id}")
-        
-        location2 = Location(
-            name='ICU',
-            type='Department',  # Required field from the enum
+        location_id = db_service.create_location(location)
+        locations.append({"id": location_id, "name": name})
+        print(f"Created location: {name}")
+
+    # Create one reader with two antennas
+    reader_code = "FX96006B6035"
+    for i, location in enumerate(locations, 1):
+        reader = Reader(
+            reader_code=reader_code,
+            antenna_number=i,
+            name=f"Reader {reader_code} Antenna {i}",
+            status="Active",
             hospital_id=hospital_id,
-            building='Main Building',
-            floor='2',
-            room='ICU-201'
+            location_id=location["id"],
+            last_heartbeat=get_current_est_time(),
+            created_at=get_current_est_time(),
+            updated_at=get_current_est_time()
         )
-        location2_id = db_service.create_location(location2)
-        print(f"Created location 2 with ID: {location2_id}")
+        db_service.create_reader(reader)
+        print(f"Created reader {reader_code} antenna {i} in {location['name']}")
+
+    # Create one device
+    device = Device(
+        serial_number="iPhone14-001",
+        model="iPhone 14",
+        manufacturer="Apple",
+        rfid_tag="200000001192024000022132",
+        status="In-Facility",
+        hospital_id=hospital_id,
+        location_id=locations[0]["id"],  # Initially in Emergency Room
+        purchase_date=get_current_est_time(),
+        eol_status="Active",
+        created_at=get_current_est_time(),
+        updated_at=get_current_est_time()
+    )
+    device_id = db_service.create_device(device)
+    print(f"Created device: {device.model} with RFID tag {device.rfid_tag}")
+
+    # Create test RFID alerts
+    current_time = get_current_est_time()
+    for i in range(3):
+        # Alternate between locations for test alerts
+        location = locations[i % 2]
+        alert_time = current_time - timedelta(hours=i)
         
-        # Create one reader with two antennas
-        reader1 = Reader(
-            reader_code='FX96006B6035',
-            name='ER Reader',
+        alert = RFIDAlert(
+            device_id=device_id,
+            reader_code=reader_code,
+            antenna_number=(i % 2) + 1,
+            rfid_tag=device.rfid_tag,
             hospital_id=hospital_id,
-            antenna_number=1,  # Required field
-            location_id=location1_id,  # Required field
-            status='Active',
-            last_heartbeat=datetime.now()
+            location_id=location["id"],
+            timestamp=alert_time,
+            created_at=alert_time,
+            updated_at=alert_time
         )
-        reader1_id = db_service.create_reader(reader1)
-        print(f"Created reader 1 with ID: {reader1_id}")
         
-        reader2 = Reader(
-            reader_code='FX96006B6035',
-            name='ICU Reader',
-            hospital_id=hospital_id,
-            antenna_number=2,  # Required field
-            location_id=location2_id,  # Required field
-            status='Active',
-            last_heartbeat=datetime.now()
-        )
-        reader2_id = db_service.create_reader(reader2)
-        print(f"Created reader 2 with ID: {reader2_id}")
-        
-        # Create one device
-        device = Device(
-            serial_number='SN123456789',
-            model='iPhone 14',
-            manufacturer='Apple',
-            rfid_tag='200000001192024000022132',
-            status='In-Facility',
-            hospital_id=hospital_id,
-            location_id=location1_id,  # Initially in ER
-            purchase_date=datetime.now().date(),  # Set purchase date to today
-            eol_status='Active'  # Required field
-        )
-        device_id = db_service.create_device(device)
-        print(f"Created device with ID: {device_id}")
-        
-        print("Test data creation completed successfully!")
-        
-    except Exception as e:
-        print(f"Error creating test data: {e}")
-        raise
+        try:
+            db_service.record_movement(alert)
+            print(f"Created test alert at {alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')} in {location['name']}")
+        except Exception as e:
+            print(f"Error creating test alert: {e}")
+
+    print("\nTest data creation completed!")
+    print("Summary:")
+    print(f"- Created hospital: {hospital.name}")
+    print(f"- Created {len(locations)} locations: {', '.join(l['name'] for l in locations)}")
+    print(f"- Created reader {reader_code} with 2 antennas")
+    print(f"- Created device: {device.model} with RFID tag {device.rfid_tag}")
+    print(f"- Created 3 test alerts")
 
 if __name__ == "__main__":
     create_test_data() 

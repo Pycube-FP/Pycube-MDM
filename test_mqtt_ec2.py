@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 from datetime import datetime, timedelta
 import mysql.connector
+import pytz
 from services.db_service import DBService
 from models.rfid_alert import RFIDAlert
 
@@ -30,6 +31,9 @@ MQTT_TOPIC = "6B6035_tagdata"
 MQTT_PORT = 8883
 KEEP_ALIVE = 60
 
+# Timezone configuration
+TIMEZONE = pytz.timezone('America/New_York')
+
 # Certificate paths for EC2
 CERTS_DIR = os.path.expanduser("~/certs")
 PRIVATE_KEY = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-private.pem.key")
@@ -39,6 +43,10 @@ ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 # Track last alert times for each device to prevent duplicates
 last_alert_times = {}
 DUPLICATE_THRESHOLD = timedelta(minutes=30)  # Minimum time between alerts for same device
+
+def get_current_est_time():
+    """Get current time in Eastern Time"""
+    return datetime.now(TIMEZONE)
 
 def verify_certificates():
     """Verify all certificate files exist and are readable"""
@@ -72,7 +80,7 @@ class MQTTClient(mqtt.Client):
     def on_connect(self, client, userdata, flags, reason_code, properties):
         """Callback when connected to MQTT broker"""
         if reason_code == mqtt.CONNACK_ACCEPTED:
-            self.connection_time = datetime.now()
+            self.connection_time = get_current_est_time()
             logger.info("Successfully connected to MQTT broker!")
             logger.debug(f"Connection flags: {flags}")
             logger.debug(f"Properties: {properties}")
@@ -85,7 +93,7 @@ class MQTTClient(mqtt.Client):
             # Publish a test message to verify publishing works
             test_msg = {
                 "test": "connection",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": get_current_est_time().isoformat()
             }
             self.publish(MQTT_TOPIC, json.dumps(test_msg), qos=1)
         else:
@@ -96,7 +104,7 @@ class MQTTClient(mqtt.Client):
         """Callback when message is received"""
         try:
             self.message_count += 1
-            self.last_message_time = datetime.now()
+            self.last_message_time = get_current_est_time()
             
             logger.info(f"Received message on topic: {msg.topic}")
             logger.info(f"Message payload: {msg.payload.decode()}")
@@ -138,8 +146,9 @@ class MQTTClient(mqtt.Client):
                         return
                     
                     # Check if we've recently created an alert for this device
+                    current_time = get_current_est_time()
                     if rfid_tag in last_alert_times:
-                        time_since_last = datetime.now() - last_alert_times[rfid_tag]
+                        time_since_last = current_time - last_alert_times[rfid_tag]
                         if time_since_last < DUPLICATE_THRESHOLD:
                             logger.info(f"Skipping duplicate alert for RFID tag {rfid_tag} (last alert was {time_since_last.total_seconds():.0f} seconds ago)")
                             return
@@ -149,19 +158,19 @@ class MQTTClient(mqtt.Client):
                     if device:
                         logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
                         
-                        # Create RFID alert
+                        # Create RFID alert with Eastern Time
                         alert = RFIDAlert(
                             device_id=device['id'],
                             reader_code=reader_code,
                             antenna_number=antenna_number,
                             rfid_tag=rfid_tag,
-                            timestamp=datetime.now()
+                            timestamp=current_time
                         )
                         
                         # Record the movement (this will create both reader_event and rfid_alert)
                         try:
                             self.db_service.record_movement(alert)
-                            last_alert_times[rfid_tag] = datetime.now()
+                            last_alert_times[rfid_tag] = current_time
                             logger.info(f"Created alert for device {device['id']} at reader {reader_code} (antenna {antenna_number})")
                         except Exception as e:
                             logger.error(f"Error recording movement: {e}")
