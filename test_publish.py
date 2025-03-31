@@ -4,6 +4,7 @@ import os
 import json
 import time
 import logging
+from datetime import datetime
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -23,21 +24,28 @@ ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 def on_connect(client, userdata, flags, reason_code, properties):
     if reason_code == mqtt.CONNACK_ACCEPTED:
         logger.info("Connected to MQTT broker")
-        # Send a test message
-        test_message = {
-            "type": "test",
-            "message": "Test message from EC2",
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
-        }
-        result = client.publish(MQTT_TOPIC, json.dumps(test_message), qos=1)
-        logger.info(f"Published test message, result: {result}")
+        # Send multiple test messages
+        for i in range(5):  # Send 5 test messages
+            test_message = {
+                "type": "test",
+                "message": f"Test message #{i+1} from EC2",
+                "timestamp": datetime.now().isoformat()
+            }
+            result = client.publish(MQTT_TOPIC, json.dumps(test_message), qos=1)
+            logger.info(f"Published test message #{i+1}, result: {result}")
+            time.sleep(2)  # Wait 2 seconds between messages
     else:
         logger.error(f"Failed to connect, reason code: {reason_code}")
+
+def on_publish(client, userdata, mid):
+    """Callback when message is published"""
+    logger.info(f"Message {mid} has been published")
 
 def main():
     # Create MQTT client
     client = mqtt.Client(protocol=mqtt.MQTTv5, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_connect
+    client.on_publish = on_publish
     
     # Configure TLS
     client.tls_set(
@@ -53,8 +61,8 @@ def main():
         client.connect(MQTT_ENDPOINT, MQTT_PORT, 60)
         client.loop_start()
         
-        # Wait for the message to be published
-        time.sleep(5)
+        # Wait longer for messages to be published
+        time.sleep(15)  # Wait 15 seconds total
         
         client.disconnect()
         client.loop_stop()
