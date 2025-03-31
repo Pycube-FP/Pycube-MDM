@@ -79,10 +79,12 @@ class MQTTClient(mqtt.Client):
             self.message_count += 1
             self.last_message_time = datetime.now()
             
+            # Log raw message first (like test_mqtt.py)
             logger.info(f"Message #{self.message_count} received on topic: {msg.topic}")
             payload = msg.payload.decode()
+            logger.info(f"Raw message payload: {payload}")
             
-            # Parse JSON payload
+            # Then try to parse as JSON
             try:
                 data = json.loads(payload)
                 logger.info(f"Parsed JSON data: {json.dumps(data, indent=2)}")
@@ -92,7 +94,7 @@ class MQTTClient(mqtt.Client):
                 # process_rfid_event(data)
                 
             except json.JSONDecodeError:
-                logger.warning(f"Received message is not valid JSON: {payload}")
+                logger.warning(f"Note: Message is not in JSON format")
             
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
