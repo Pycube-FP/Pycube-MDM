@@ -12,8 +12,7 @@ logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('mqtt_debug.log')
+        logging.StreamHandler()  # Only console output
     ]
 )
 logger = logging.getLogger(__name__)
