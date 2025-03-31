@@ -27,11 +27,15 @@ def create_test_data():
     
     try:
         # Create a hospital
-        hospital_id = db_service.create_hospital({
-            'name': 'BayCare Main Hospital',
-            'address': '2985 Drew St, Clearwater, FL 33759',
-            'phone': '(727) 462-7000'
-        })
+        hospital = Hospital(
+            name='BayCare Main Hospital',
+            code='BCH',  # Added required code field
+            address='2985 Drew St, Clearwater, FL 33759',
+            city='Clearwater',  # Added city
+            state='FL',  # Added state
+            zip_code='33759'  # Added zip code
+        )
+        hospital_id = db_service.create_hospital(hospital)
         print(f"Created hospital with ID: {hospital_id}")
         
         # Create two locations in the hospital
@@ -95,8 +99,6 @@ def create_test_data():
     except Exception as e:
         print(f"Error creating test data: {e}")
         raise
-    finally:
-        db_service.close()
 
 if __name__ == "__main__":
     create_test_data() 
