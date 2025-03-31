@@ -62,12 +62,15 @@ def create_test_data():
         print(f"Created location 2 with ID: {location2_id}")
         
         # Create one reader with two antennas
-        reader_id = db_service.create_reader({
-            'reader_code': 'FX96006B6035',
-            'name': 'Main Reader',
-            'description': 'Two-antenna reader covering ER and ICU',
-            'hospital_id': hospital_id
-        })
+        reader = Reader(
+            reader_code='FX96006B6035',
+            name='Main Reader',
+            description='Two-antenna reader covering ER and ICU',
+            hospital_id=hospital_id,
+            status='Active',  # Required field
+            last_heartbeat=datetime.now()  # Required field
+        )
+        reader_id = db_service.create_reader(reader)
         print(f"Created reader with ID: {reader_id}")
         
         # Create two antennas for the reader
