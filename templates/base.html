@@ -519,6 +519,27 @@
                 width: 200px;
             }
         }
+
+        /* Add new styles for RFID Alerts nav item */
+        .nav-link.rfid-alerts {
+            color: #ff4444 !important;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .nav-link.rfid-alerts:hover {
+            color: #ff6666 !important;
+        }
+        
+        .nav-link.rfid-alerts.active {
+            background-color: rgba(255, 68, 68, 0.15) !important;
+            color: #ff6666 !important;
+        }
+
+        .nav-link.rfid-alerts i {
+            font-size: 14px;
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
@@ -551,8 +572,9 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'rfid.alerts' %}active{% endif %}"
+                        <a class="nav-link rfid-alerts {% if request.endpoint == 'rfid.alerts' %}active{% endif %}"
                            href="{{ url_for('rfid.alerts') }}">
+                            <i class="fas fa-bell"></i>
                             RFID Alerts
                         </a>
                     </li>
