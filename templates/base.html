@@ -551,18 +551,6 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint.startswith('nurses.') %}active{% endif %}"
-                           href="{{ url_for('nurses.index') }}">
-                            Nurses
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link {% if request.endpoint == 'assignments.consolidated_assignment' %}active{% endif %}"
-                           href="{{ url_for('assignments.consolidated_assignment') }}">
-                            Device Assignments
-                        </a>
-                    </li>
-                    <li class="nav-item">
                         <a class="nav-link {% if request.endpoint == 'rfid.alerts' %}active{% endif %}"
                            href="{{ url_for('rfid.alerts') }}">
                             RFID Alerts
