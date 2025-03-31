@@ -7,17 +7,20 @@ import json
 from pathlib import Path
 from datetime import datetime
 
-# Set up logging
-log_filename = f'mqtt_client_{datetime.now().strftime("%Y%m%d_%H%M%S")}.log'
+# Set up logging with debug level
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,  # Changed to DEBUG level
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
-        logging.FileHandler(log_filename)
+        logging.FileHandler('mqtt_debug.log')
     ]
 )
 logger = logging.getLogger(__name__)
+
+# Enable Paho MQTT debug
+logger_paho = logging.getLogger('paho.mqtt')
+logger_paho.setLevel(logging.DEBUG)
 
 # MQTT configuration
 MQTT_ENDPOINT = "a2zl2pb12jbe1o-ats.iot.us-east-1.amazonaws.com"
@@ -52,18 +55,32 @@ class MQTTClient(mqtt.Client):
         self.message_count = 0
         self.last_message_time = None
         self.connection_time = None
+        
+        # Enable internal MQTT client debugging
+        self.enable_logger(logger)
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         """Callback when connected to MQTT broker"""
         if reason_code == mqtt.CONNACK_ACCEPTED:
             self.connection_time = datetime.now()
             logger.info("Successfully connected to MQTT broker!")
-            self.subscribe(MQTT_TOPIC)
-            logger.info(f"Subscribed to topic: {MQTT_TOPIC}")
+            logger.debug(f"Connection flags: {flags}")
+            logger.debug(f"Properties: {properties}")
+            
+            # Subscribe with QoS 1 and log the result
+            result, mid = self.subscribe(MQTT_TOPIC, qos=1)
+            logger.info(f"Subscribed to topic: {MQTT_TOPIC} with QoS 1, Result: {result}, Message ID: {mid}")
             self.connected = True
         else:
             logger.error(f"Failed to connect, reason code: {reason_code}")
+            logger.debug(f"Connection flags: {flags}")
+            logger.debug(f"Properties: {properties}")
             self.connected = False
+
+    def on_subscribe(self, client, userdata, mid, reason_code, properties):
+        """Callback when subscription is confirmed"""
+        logger.info(f"Subscription confirmed for message ID {mid}, Reason code: {reason_code}")
+        logger.debug(f"Subscribe properties: {properties}")
 
     def on_disconnect(self, client, userdata, rc):
         """Callback when disconnected from MQTT broker"""
@@ -79,19 +96,28 @@ class MQTTClient(mqtt.Client):
             self.message_count += 1
             self.last_message_time = datetime.now()
             
-            # Log raw message first (like test_mqtt.py)
-            logger.info(f"Message #{self.message_count} received on topic: {msg.topic}")
-            payload = msg.payload.decode()
-            logger.info(f"Raw message payload: {payload}")
+            logger.debug("Raw message received:")
+            logger.debug(f"Topic: {msg.topic}")
+            logger.debug(f"QoS: {msg.qos}")
+            logger.debug(f"Retain Flag: {msg.retain}")
+            logger.debug(f"Payload (hex): {msg.payload.hex()}")
+            
+            # Log formatted message
+            logger.info(f"""
+Message Details:
+----------------
+Count: #{self.message_count}
+Topic: {msg.topic}
+QoS: {msg.qos}
+Retain Flag: {msg.retain}
+Timestamp: {self.last_message_time}
+Payload: {msg.payload.decode()}
+----------------""")
             
             # Then try to parse as JSON
             try:
-                data = json.loads(payload)
+                data = json.loads(msg.payload.decode())
                 logger.info(f"Parsed JSON data: {json.dumps(data, indent=2)}")
-                
-                # Add your message processing logic here
-                # For example:
-                # process_rfid_event(data)
                 
             except json.JSONDecodeError:
                 logger.warning(f"Note: Message is not in JSON format")
