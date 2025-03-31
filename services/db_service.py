@@ -134,7 +134,7 @@ class DBService:
                     manufacturer VARCHAR(100),
                     rfid_tag VARCHAR(100) UNIQUE,
                     barcode VARCHAR(100) UNIQUE,
-                    status ENUM('In-Facility', 'Missing') DEFAULT 'In-Facility',
+                    status ENUM('In-Facility', 'Missing', 'Temporarily Out') DEFAULT 'In-Facility',
                     hospital_id VARCHAR(36),
                     location_id VARCHAR(36),
                     assigned_to VARCHAR(100),

@@ -215,6 +215,7 @@
                     <h2 style="color: var(--gray-900); margin-bottom: var(--spacing-xs);">{{ device.manufacturer }} {{ device.model }}</h2>
                     <div style="display: flex; align-items: center; justify-content: center; gap: var(--spacing-sm);">
                         <span class="badge {% if device.status == 'In-Facility' %}bg-success
+                                     {% elif device.status == 'Temporarily Out' %}bg-warning
                                      {% else %}bg-danger{% endif %}"
                               style="font-size: 0.85rem; padding: 0.35em 0.65em;">
                             {{ device.status }}

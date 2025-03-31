@@ -75,6 +75,7 @@
                         <label for="status">Status</label>
                         <select class="form-control" id="status" name="status">
                             <option value="In-Facility" {% if device.status == 'In-Facility' %}selected{% endif %}>In-Facility</option>
+                            <option value="Temporarily Out" {% if device.status == 'Temporarily Out' %}selected{% endif %}>Temporarily Out</option>
                             <option value="Missing" {% if device.status == 'Missing' %}selected{% endif %}>Missing</option>
                         </select>
                     </div>
