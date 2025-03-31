@@ -9,7 +9,7 @@ from datetime import datetime
 
 # Set up logging with debug level
 logging.basicConfig(
-    level=logging.DEBUG,  # Changed to DEBUG level
+    level=logging.DEBUG,
     format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(),
@@ -56,6 +56,9 @@ class MQTTClient(mqtt.Client):
         self.last_message_time = None
         self.connection_time = None
         
+        # Set clean session to False to maintain subscription state
+        self.clean_session = False
+        
         # Enable internal MQTT client debugging
         self.enable_logger(logger)
 
@@ -67,28 +70,20 @@ class MQTTClient(mqtt.Client):
             logger.debug(f"Connection flags: {flags}")
             logger.debug(f"Properties: {properties}")
             
-            # Subscribe with QoS 1 and log the result
-            result, mid = self.subscribe(MQTT_TOPIC, qos=1)
+            # Subscribe with QoS 1
+            result, mid = self.subscribe([(MQTT_TOPIC, 1)])
             logger.info(f"Subscribed to topic: {MQTT_TOPIC} with QoS 1, Result: {result}, Message ID: {mid}")
             self.connected = True
+            
+            # Publish a test message to verify publishing works
+            test_msg = {
+                "test": "connection",
+                "timestamp": datetime.now().isoformat()
+            }
+            self.publish(MQTT_TOPIC, json.dumps(test_msg), qos=1)
         else:
             logger.error(f"Failed to connect, reason code: {reason_code}")
-            logger.debug(f"Connection flags: {flags}")
-            logger.debug(f"Properties: {properties}")
             self.connected = False
-
-    def on_subscribe(self, client, userdata, mid, reason_code, properties):
-        """Callback when subscription is confirmed"""
-        logger.info(f"Subscription confirmed for message ID {mid}, Reason code: {reason_code}")
-        logger.debug(f"Subscribe properties: {properties}")
-
-    def on_disconnect(self, client, userdata, rc):
-        """Callback when disconnected from MQTT broker"""
-        self.connected = False
-        duration = ""
-        if self.connection_time:
-            duration = f" (Connection duration: {datetime.now() - self.connection_time})"
-        logger.warning(f"Disconnected from MQTT broker with code: {rc}{duration}")
 
     def on_message(self, client, userdata, msg):
         """Callback when message is received"""
@@ -96,98 +91,71 @@ class MQTTClient(mqtt.Client):
             self.message_count += 1
             self.last_message_time = datetime.now()
             
-            logger.debug("Raw message received:")
-            logger.debug(f"Topic: {msg.topic}")
-            logger.debug(f"QoS: {msg.qos}")
-            logger.debug(f"Retain Flag: {msg.retain}")
-            logger.debug(f"Payload (hex): {msg.payload.hex()}")
+            logger.info(f"Received message on topic: {msg.topic}")
+            logger.info(f"Message payload: {msg.payload.decode()}")
             
-            # Log formatted message
-            logger.info(f"""
-Message Details:
-----------------
-Count: #{self.message_count}
-Topic: {msg.topic}
-QoS: {msg.qos}
-Retain Flag: {msg.retain}
-Timestamp: {self.last_message_time}
-Payload: {msg.payload.decode()}
-----------------""")
-            
-            # Then try to parse as JSON
+            # Parse and log the specific fields we expect
             try:
                 data = json.loads(msg.payload.decode())
-                logger.info(f"Parsed JSON data: {json.dumps(data, indent=2)}")
-                
+                if 'data' in data and 'MAC' in data['data']:
+                    logger.info(f"Received RFID event from MAC: {data['data']['MAC']}")
+                    logger.info(f"Event Number: {data['data'].get('eventNum')}")
+                    logger.info(f"ID Hex: {data['data'].get('idHex')}")
             except json.JSONDecodeError:
-                logger.warning(f"Note: Message is not in JSON format")
+                logger.warning("Failed to parse message as JSON")
             
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
 
-    def get_status(self):
-        """Get current client status"""
-        status = {
-            "connected": self.connected,
-            "messages_received": self.message_count,
-            "last_message_time": self.last_message_time,
-            "connection_time": self.connection_time
-        }
-        return status
+    def on_subscribe(self, client, userdata, mid, reason_code, properties):
+        """Callback when subscription is confirmed"""
+        logger.info(f"Subscription confirmed. Message ID: {mid}, Reason code: {reason_code}")
+        if isinstance(reason_code, list):
+            for rc in reason_code:
+                logger.info(f"Subscription QoS level: {rc}")
+
+    def on_disconnect(self, client, userdata, rc):
+        """Callback when disconnected"""
+        self.connected = False
+        logger.warning(f"Disconnected with result code: {rc}")
+        if rc != 0:
+            logger.error("Unexpected disconnection. Will attempt to reconnect.")
 
 def main():
     # Verify certificates exist
     verify_certificates()
     
-    # Create MQTT client
-    client = MQTTClient(protocol=mqtt.MQTTv5, callback_api_version=mqtt.CallbackAPIVersion.VERSION2)
+    # Create MQTT client with persistent session
+    client = MQTTClient(
+        protocol=mqtt.MQTTv5,
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id="ec2-rfid-client"  # Add a specific client ID
+    )
+    
+    # Configure TLS
+    client.tls_set(
+        ca_certs=ROOT_CA,
+        certfile=CERTIFICATE,
+        keyfile=PRIVATE_KEY,
+        cert_reqs=ssl.CERT_REQUIRED,
+        tls_version=ssl.PROTOCOL_TLSv1_2
+    )
+    
+    # Set reconnect behavior
+    client.reconnect_delay_set(min_delay=1, max_delay=30)
     
     try:
-        # Configure TLS/SSL
-        logger.info("Setting up TLS configuration...")
-        client.tls_set(
-            ca_certs=ROOT_CA,
-            certfile=CERTIFICATE,
-            keyfile=PRIVATE_KEY,
-            cert_reqs=ssl.CERT_REQUIRED,
-            tls_version=ssl.PROTOCOL_TLSv1_2
-        )
+        logger.info(f"Connecting to {MQTT_ENDPOINT}...")
+        client.connect(MQTT_ENDPOINT, MQTT_PORT, KEEP_ALIVE)
         
-        # Configure reconnection behavior
-        client.reconnect_delay_set(min_delay=1, max_delay=30)
+        # Start the loop
+        client.loop_forever()
         
-        while True:
-            try:
-                if not client.connected:
-                    logger.info(f"Attempting to connect to {MQTT_ENDPOINT}...")
-                    client.connect(MQTT_ENDPOINT, MQTT_PORT, KEEP_ALIVE)
-                    client.loop_start()
-                
-                # Keep the script running and monitor connection
-                while client.connected:
-                    time.sleep(1)
-                    # Log status every hour
-                    if datetime.now().minute == 0 and datetime.now().second == 0:
-                        status = client.get_status()
-                        logger.info(f"Status update: {json.dumps(status, default=str)}")
-                
-                # If we get here, we lost connection
-                logger.warning("Lost connection, attempting to reconnect...")
-                client.loop_stop()
-                time.sleep(5)  # Wait before reconnecting
-                
-            except Exception as e:
-                logger.error(f"Connection error: {e}", exc_info=True)
-                time.sleep(5)  # Wait before retrying
-                
     except KeyboardInterrupt:
         logger.info("Shutting down...")
-        status = client.get_status()
-        logger.info(f"Final status: {json.dumps(status, default=str)}")
-        client.loop_stop()
         client.disconnect()
     except Exception as e:
-        logger.error(f"Fatal error: {e}", exc_info=True)
+        logger.error(f"Error: {e}", exc_info=True)
         raise
 
 if __name__ == "__main__":
