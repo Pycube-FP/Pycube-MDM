@@ -62,33 +62,29 @@ def create_test_data():
         print(f"Created location 2 with ID: {location2_id}")
         
         # Create one reader with two antennas
-        reader = Reader(
+        reader1 = Reader(
             reader_code='FX96006B6035',
-            name='Main Reader',
-            description='Two-antenna reader covering ER and ICU',
+            name='ER Reader',
             hospital_id=hospital_id,
-            status='Active',  # Required field
-            last_heartbeat=datetime.now()  # Required field
+            antenna_number=1,  # Required field
+            location_id=location1_id,  # Required field
+            status='Active',
+            last_heartbeat=datetime.now()
         )
-        reader_id = db_service.create_reader(reader)
-        print(f"Created reader with ID: {reader_id}")
+        reader1_id = db_service.create_reader(reader1)
+        print(f"Created reader 1 with ID: {reader1_id}")
         
-        # Create two antennas for the reader
-        antenna1_id = db_service.create_antenna({
-            'reader_id': reader_id,
-            'antenna_number': 1,
-            'location_id': location1_id,
-            'name': 'ER Antenna'
-        })
-        print(f"Created antenna 1 with ID: {antenna1_id}")
-        
-        antenna2_id = db_service.create_antenna({
-            'reader_id': reader_id,
-            'antenna_number': 2,
-            'location_id': location2_id,
-            'name': 'ICU Antenna'
-        })
-        print(f"Created antenna 2 with ID: {antenna2_id}")
+        reader2 = Reader(
+            reader_code='FX96006B6035',
+            name='ICU Reader',
+            hospital_id=hospital_id,
+            antenna_number=2,  # Required field
+            location_id=location2_id,  # Required field
+            status='Active',
+            last_heartbeat=datetime.now()
+        )
+        reader2_id = db_service.create_reader(reader2)
+        print(f"Created reader 2 with ID: {reader2_id}")
         
         # Create one device
         device_id = db_service.create_device({
