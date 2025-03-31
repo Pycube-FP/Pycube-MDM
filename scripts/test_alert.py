@@ -39,20 +39,26 @@ def create_test_data():
         print(f"Created hospital with ID: {hospital_id}")
         
         # Create two locations in the hospital
-        location1_id = db_service.create_location({
-            'name': 'Emergency Room',
-            'floor': '1',
-            'room': 'ER-101',
-            'hospital_id': hospital_id
-        })
+        location1 = Location(
+            name='Emergency Room',
+            type='Department',  # Required field from the enum
+            hospital_id=hospital_id,
+            building='Main Building',
+            floor='1',
+            room='ER-101'
+        )
+        location1_id = db_service.create_location(location1)
         print(f"Created location 1 with ID: {location1_id}")
         
-        location2_id = db_service.create_location({
-            'name': 'ICU',
-            'floor': '2',
-            'room': 'ICU-201',
-            'hospital_id': hospital_id
-        })
+        location2 = Location(
+            name='ICU',
+            type='Department',  # Required field from the enum
+            hospital_id=hospital_id,
+            building='Main Building',
+            floor='2',
+            room='ICU-201'
+        )
+        location2_id = db_service.create_location(location2)
         print(f"Created location 2 with ID: {location2_id}")
         
         # Create one reader with two antennas
