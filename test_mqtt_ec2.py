@@ -40,8 +40,7 @@ PRIVATE_KEY = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a
 CERTIFICATE = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-certificate.pem.crt")
 ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 
-# Track last alert times for each device to prevent duplicates
-last_alert_times = {}
+# Duplicate alert threshold
 DUPLICATE_THRESHOLD = timedelta(minutes=30)  # Minimum time between alerts for same device
 
 def get_current_est_time():
@@ -76,6 +75,40 @@ class MQTTClient(mqtt.Client):
         
         # Enable internal MQTT client debugging
         self.enable_logger(logger)
+
+    def check_recent_alert(self, rfid_tag):
+        """Check if there's a recent alert for this RFID tag"""
+        try:
+            with self.db_service.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    # Get the most recent alert for this RFID tag
+                    query = """
+                        SELECT timestamp 
+                        FROM rfid_alerts 
+                        WHERE rfid_tag = %s 
+                        ORDER BY timestamp DESC 
+                        LIMIT 1
+                    """
+                    cursor.execute(query, (rfid_tag,))
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        last_alert_time = result['timestamp']
+                        # Make sure the timestamp has timezone info
+                        if not last_alert_time.tzinfo:
+                            last_alert_time = TIMEZONE.localize(last_alert_time)
+                            
+                        time_since_last = get_current_est_time() - last_alert_time
+                        if time_since_last < DUPLICATE_THRESHOLD:
+                            logger.info(f"Found recent alert from {last_alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')} "
+                                      f"({time_since_last.total_seconds():.0f} seconds ago)")
+                            return True
+                            
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Error checking recent alerts: {e}")
+            return False
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
         """Callback when connected to MQTT broker"""
@@ -145,13 +178,10 @@ class MQTTClient(mqtt.Client):
                         logger.error(f"Error checking reader: {e}")
                         return
                     
-                    # Check if we've recently created an alert for this device
-                    current_time = get_current_est_time()
-                    if rfid_tag in last_alert_times:
-                        time_since_last = current_time - last_alert_times[rfid_tag]
-                        if time_since_last < DUPLICATE_THRESHOLD:
-                            logger.info(f"Skipping duplicate alert for RFID tag {rfid_tag} (last alert was {time_since_last.total_seconds():.0f} seconds ago)")
-                            return
+                    # Check for recent alerts for this RFID tag
+                    if self.check_recent_alert(rfid_tag):
+                        logger.info(f"Skipping duplicate alert for RFID tag {rfid_tag}")
+                        return
                     
                     # Look up device by RFID tag
                     device = self.db_service.get_device_by_rfid(rfid_tag)
@@ -164,13 +194,12 @@ class MQTTClient(mqtt.Client):
                             reader_code=reader_code,
                             antenna_number=antenna_number,
                             rfid_tag=rfid_tag,
-                            timestamp=current_time
+                            timestamp=get_current_est_time()
                         )
                         
                         # Record the movement (this will create both reader_event and rfid_alert)
                         try:
                             self.db_service.record_movement(alert)
-                            last_alert_times[rfid_tag] = current_time
                             logger.info(f"Created alert for device {device['id']} at reader {reader_code} (antenna {antenna_number})")
                         except Exception as e:
                             logger.error(f"Error recording movement: {e}")
