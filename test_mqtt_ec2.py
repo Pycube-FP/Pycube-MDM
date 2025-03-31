@@ -294,15 +294,13 @@ class MQTTClient(mqtt.Client):
                             
                         # Create RFID alert regardless of status change
                         try:
-                            alert = {
-                                'id': str(uuid.uuid4()),
-                                'device_id': device['id'],
-                                'reader_id': reader_code,
-                                'timestamp': get_current_est_time(),
-                                'status': device['status'],
-                                'hospital_id': reader['hospital_id'],
-                                'location_id': reader['location_id']
-                            }
+                            alert = RFIDAlert(
+                                device_id=device['id'],
+                                reader_code=reader_code,
+                                antenna_number=antenna_number,
+                                rfid_tag=rfid_tag,
+                                timestamp=get_current_est_time()
+                            )
                             
                             # Record the movement (this will create both reader_event and rfid_alert)
                             self.db_service.record_movement(alert)
