@@ -106,8 +106,8 @@
 
     document.getElementById('confirmDelete').addEventListener('click', function() {
         if (deleteDeviceId) {
-            fetch(`/api/devices/${deleteDeviceId}`, {
-                method: 'DELETE',
+            fetch(`/devices/${deleteDeviceId}/delete`, {
+                method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 }

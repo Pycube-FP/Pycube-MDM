@@ -74,9 +74,7 @@
                     <div class="form-group">
                         <label for="status">Status</label>
                         <select class="form-control" id="status" name="status">
-                            <option value="Available" {% if device.status == 'Available' %}selected{% endif %}>Available</option>
-                            <option value="In-Use" {% if device.status == 'In-Use' %}selected{% endif %}>In-Use</option>
-                            <option value="Maintenance" {% if device.status == 'Maintenance' %}selected{% endif %}>Maintenance</option>
+                            <option value="In-Facility" {% if device.status == 'In-Facility' %}selected{% endif %}>In-Facility</option>
                             <option value="Missing" {% if device.status == 'Missing' %}selected{% endif %}>Missing</option>
                         </select>
                     </div>

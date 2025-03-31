@@ -188,6 +188,36 @@ class MQTTClient(mqtt.Client):
                     if device:
                         logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
                         
+                        # Update device status to Missing
+                        try:
+                            update_query = """
+                                UPDATE devices 
+                                SET status = 'Missing',
+                                    updated_at = %s,
+                                    serial_number = serial_number,
+                                    model = model,
+                                    manufacturer = manufacturer,
+                                    rfid_tag = rfid_tag,
+                                    barcode = barcode,
+                                    hospital_id = hospital_id,
+                                    location_id = location_id,
+                                    assigned_to = assigned_to,
+                                    purchase_date = purchase_date,
+                                    last_maintenance_date = last_maintenance_date,
+                                    eol_date = eol_date,
+                                    eol_status = eol_status,
+                                    eol_notes = eol_notes,
+                                    created_at = created_at
+                                WHERE id = %s
+                            """
+                            with self.db_service.get_connection() as connection:
+                                with connection.cursor() as cursor:
+                                    cursor.execute(update_query, (get_current_est_time(), device['id']))
+                                    connection.commit()
+                            logger.info(f"Updated device {device['id']} status to Missing while preserving other fields")
+                        except Exception as e:
+                            logger.error(f"Error updating device status: {e}")
+                        
                         # Create RFID alert with Eastern Time
                         alert = RFIDAlert(
                             device_id=device['id'],
