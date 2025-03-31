@@ -41,8 +41,7 @@ PRIVATE_KEY = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a
 CERTIFICATE = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-certificate.pem.crt")
 ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 
-# Duplicate alert threshold
-DUPLICATE_THRESHOLD = timedelta(minutes=30)  # Minimum time between alerts for same device
+# Constants for status change thresholds
 STATUS_CHANGE_THRESHOLD = timedelta(minutes=5)  # Minimum time between status changes
 MISSING_THRESHOLD = timedelta(minutes=45)  # Time after which a temporarily out device is considered missing
 
@@ -79,79 +78,14 @@ class MQTTClient(mqtt.Client):
         # Enable internal MQTT client debugging
         self.enable_logger(logger)
 
-    def check_recent_alert(self, rfid_tag):
-        """Check if there's a recent alert for this RFID tag"""
-        try:
-            with self.db_service.get_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    # Get the most recent alert for this RFID tag
-                    query = """
-                        SELECT timestamp 
-                        FROM rfid_alerts 
-                        WHERE rfid_tag = %s 
-                        ORDER BY timestamp DESC 
-                        LIMIT 1
-                    """
-                    cursor.execute(query, (rfid_tag,))
-                    result = cursor.fetchone()
-                    
-                    if result:
-                        last_alert_time = result['timestamp']
-                        # Make sure the timestamp has timezone info
-                        if not last_alert_time.tzinfo:
-                            last_alert_time = TIMEZONE.localize(last_alert_time)
-                            
-                        time_since_last = get_current_est_time() - last_alert_time
-                        if time_since_last < DUPLICATE_THRESHOLD:
-                            logger.info(f"Found recent alert from {last_alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')} "
-                                        f"({time_since_last.total_seconds():.0f} seconds ago)")
-                            return True
-                            
-                    return False
-                    
-        except Exception as e:
-            logger.error(f"Error checking recent alerts: {e}")
-            return False
-
-    def check_recent_status_change(self, device_id):
-        """Check if there's been a recent status change for this device"""
-        try:
-            with self.db_service.get_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    # Get the most recent status update time for this device
-                    query = """
-                        SELECT updated_at 
-                        FROM devices 
-                        WHERE id = %s
-                    """
-                    cursor.execute(query, (device_id,))
-                    result = cursor.fetchone()
-                    
-                    if result:
-                        last_update = result['updated_at']
-                        # Make sure the timestamp has timezone info
-                        if not last_update.tzinfo:
-                            last_update = TIMEZONE.localize(last_update)
-                            
-                        time_since_update = get_current_est_time() - last_update
-                        if time_since_update < STATUS_CHANGE_THRESHOLD:
-                            logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
-                            return True
-                            
-                    return False
-                    
-        except Exception as e:
-            logger.error(f"Error checking recent status change: {e}")
-            return False
-
-    def check_device_status(self, device_id):
+    def check_and_update_status(self, device_id, current_status):
         """Check device status and update if needed based on time thresholds"""
         try:
             with self.db_service.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
-                    # Get the device's current status and last update time
+                    # Get the last update time for this device
                     query = """
-                        SELECT status, updated_at 
+                        SELECT updated_at 
                         FROM devices 
                         WHERE id = %s
                     """
@@ -161,9 +95,7 @@ class MQTTClient(mqtt.Client):
                     if not result:
                         return False
                         
-                    current_status = result['status']
                     last_update = result['updated_at']
-                    
                     # Make sure the timestamp has timezone info
                     if not last_update.tzinfo:
                         last_update = TIMEZONE.localize(last_update)
@@ -171,23 +103,29 @@ class MQTTClient(mqtt.Client):
                     current_time = get_current_est_time()
                     time_since_update = current_time - last_update
                     
+                    # If status was updated recently, skip change
+                    if time_since_update < STATUS_CHANGE_THRESHOLD:
+                        logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
+                        return False
+                    
                     # If device is temporarily out and threshold exceeded, mark as missing
                     if current_status == 'Temporarily Out' and time_since_update >= MISSING_THRESHOLD:
                         self.update_device_status(device_id, 'Missing')
                         logger.info(f"Device {device_id} has been out for {time_since_update.total_seconds()/60:.1f} minutes - marking as Missing")
                         return True
                     
-                    # If status was updated recently, skip change
-                    if time_since_update < STATUS_CHANGE_THRESHOLD:
-                        logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
+                    # If device is in facility, mark as temporarily out
+                    if current_status == 'In-Facility':
+                        self.update_device_status(device_id, 'Temporarily Out')
+                        logger.info(f"Device {device_id} marked as Temporarily Out")
                         return True
-                        
+                    
                     return False
                     
         except Exception as e:
             logger.error(f"Error checking device status: {e}")
             return False
-            
+
     def update_device_status(self, device_id, new_status):
         """Update device status while preserving other fields"""
         try:
@@ -275,23 +213,14 @@ class MQTTClient(mqtt.Client):
                         logger.error(f"Error checking reader: {e}")
                         return
                     
-                    # Check for recent alerts for this RFID tag
-                    # if self.check_recent_alert(rfid_tag):
-                    #     logger.info(f"Skipping duplicate alert for RFID tag {rfid_tag}")
-                    #     return
-                    
                     # Look up device by RFID tag
                     device = self.db_service.get_device_by_rfid(rfid_tag)
                     if device:
                         logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
                         
-                        # Check device status and update if needed
-                        if not self.check_device_status(device['id']):
-                            # If device is in facility, mark as temporarily out
-                            if device['status'] == 'In-Facility':
-                                self.update_device_status(device['id'], 'Temporarily Out')
-                                logger.info(f"Device {device['id']} marked as Temporarily Out")
-                            
+                        # Check and update device status if needed
+                        self.check_and_update_status(device['id'], device['status'])
+                        
                         # Create RFID alert regardless of status change
                         try:
                             alert = RFIDAlert(
