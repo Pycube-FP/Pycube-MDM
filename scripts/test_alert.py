@@ -87,16 +87,18 @@ def create_test_data():
         print(f"Created reader 2 with ID: {reader2_id}")
         
         # Create one device
-        device_id = db_service.create_device({
-            'name': 'iPhone Test Device',
-            'type': 'iPhone',
-            'model': 'iPhone 14',
-            'serial_number': 'SN123456789',
-            'rfid_tag': '200000001192024000022132',
-            'status': 'In-Facility',
-            'hospital_id': hospital_id,
-            'location_id': location1_id  # Initially in ER
-        })
+        device = Device(
+            serial_number='SN123456789',
+            model='iPhone 14',
+            manufacturer='Apple',
+            rfid_tag='200000001192024000022132',
+            status='In-Facility',
+            hospital_id=hospital_id,
+            location_id=location1_id,  # Initially in ER
+            purchase_date=datetime.now().date(),  # Set purchase date to today
+            eol_status='Active'  # Required field
+        )
+        device_id = db_service.create_device(device)
         print(f"Created device with ID: {device_id}")
         
         print("Test data creation completed successfully!")
