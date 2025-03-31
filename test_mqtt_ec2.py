@@ -5,7 +5,10 @@ import ssl
 import os
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
+import mysql.connector
+from services.db_service import DBService
+from models.rfid_alert import RFIDAlert
 
 # Set up logging with debug level
 logging.basicConfig(
@@ -33,6 +36,10 @@ PRIVATE_KEY = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a
 CERTIFICATE = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-certificate.pem.crt")
 ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 
+# Track last alert times for each device to prevent duplicates
+last_alert_times = {}
+DUPLICATE_THRESHOLD = timedelta(minutes=30)  # Minimum time between alerts for same device
+
 def verify_certificates():
     """Verify all certificate files exist and are readable"""
     for cert_file in [PRIVATE_KEY, CERTIFICATE, ROOT_CA]:
@@ -54,6 +61,7 @@ class MQTTClient(mqtt.Client):
         self.message_count = 0
         self.last_message_time = None
         self.connection_time = None
+        self.db_service = DBService()
         
         # Set clean session to False to maintain subscription state
         self.clean_session = False
@@ -93,13 +101,73 @@ class MQTTClient(mqtt.Client):
             logger.info(f"Received message on topic: {msg.topic}")
             logger.info(f"Message payload: {msg.payload.decode()}")
             
-            # Parse and log the specific fields we expect
+            # Parse and process the message
             try:
                 data = json.loads(msg.payload.decode())
-                if 'data' in data and 'MAC' in data['data']:
-                    logger.info(f"Received RFID event from MAC: {data['data']['MAC']}")
-                    logger.info(f"Event Number: {data['data'].get('eventNum')}")
-                    logger.info(f"ID Hex: {data['data'].get('idHex')}")
+                if 'data' in data:
+                    msg_data = data['data']
+                    reader_code = msg_data.get('hostName')
+                    antenna_number = msg_data.get('antenna')
+                    rfid_tag = msg_data.get('idHex')
+                    
+                    if not all([reader_code, antenna_number, rfid_tag]):
+                        logger.warning("Missing required fields in message")
+                        return
+                    
+                    # First verify this is our reader
+                    try:
+                        reader_query = """
+                            SELECT r.*, l.id as location_id, h.id as hospital_id
+                            FROM readers r
+                            LEFT JOIN locations l ON r.location_id = l.id
+                            LEFT JOIN hospitals h ON r.hospital_id = h.id
+                            WHERE r.reader_code = %s AND r.antenna_number = %s
+                        """
+                        with self.db_service.get_connection() as connection:
+                            with connection.cursor(dictionary=True) as cursor:
+                                cursor.execute(reader_query, (reader_code, antenna_number))
+                                reader = cursor.fetchone()
+                                
+                        if not reader:
+                            logger.info(f"Ignoring message - Reader {reader_code} with antenna {antenna_number} not found in our database")
+                            return
+                        
+                        logger.info(f"Found reader {reader_code} at location {reader['location_id']}")
+                    except Exception as e:
+                        logger.error(f"Error checking reader: {e}")
+                        return
+                    
+                    # Check if we've recently created an alert for this device
+                    if rfid_tag in last_alert_times:
+                        time_since_last = datetime.now() - last_alert_times[rfid_tag]
+                        if time_since_last < DUPLICATE_THRESHOLD:
+                            logger.info(f"Skipping duplicate alert for RFID tag {rfid_tag} (last alert was {time_since_last.total_seconds():.0f} seconds ago)")
+                            return
+                    
+                    # Look up device by RFID tag
+                    device = self.db_service.get_device_by_rfid(rfid_tag)
+                    if device:
+                        logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
+                        
+                        # Create RFID alert
+                        alert = RFIDAlert(
+                            device_id=device['id'],
+                            reader_code=reader_code,
+                            antenna_number=antenna_number,
+                            rfid_tag=rfid_tag,
+                            timestamp=datetime.now()
+                        )
+                        
+                        # Record the movement (this will create both reader_event and rfid_alert)
+                        try:
+                            self.db_service.record_movement(alert)
+                            last_alert_times[rfid_tag] = datetime.now()
+                            logger.info(f"Created alert for device {device['id']} at reader {reader_code} (antenna {antenna_number})")
+                        except Exception as e:
+                            logger.error(f"Error recording movement: {e}")
+                    else:
+                        logger.info(f"No device found for RFID tag: {rfid_tag}")
+                
             except json.JSONDecodeError:
                 logger.warning("Failed to parse message as JSON")
             
