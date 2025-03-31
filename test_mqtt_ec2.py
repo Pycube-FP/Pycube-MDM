@@ -23,7 +23,7 @@ logger_paho.setLevel(logging.DEBUG)
 
 # MQTT configuration
 MQTT_ENDPOINT = "a2zl2pb12jbe1o-ats.iot.us-east-1.amazonaws.com"
-MQTT_TOPIC = "7758D5_OFC1_events"
+MQTT_TOPIC = "6B6035_tagdata"
 MQTT_PORT = 8883
 KEEP_ALIVE = 60
 
