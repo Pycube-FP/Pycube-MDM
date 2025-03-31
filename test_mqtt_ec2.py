@@ -41,7 +41,8 @@ CERTIFICATE = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a
 ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 
 # Duplicate alert threshold
-DUPLICATE_THRESHOLD = timedelta(minutes=30)  # Minimum time between alerts for same device
+# DUPLICATE_THRESHOLD = timedelta(minutes=30)  # Minimum time between alerts for same device
+STATUS_CHANGE_THRESHOLD = timedelta(minutes=5)  # Minimum time between status changes
 
 def get_current_est_time():
     """Get current time in Eastern Time"""
@@ -99,15 +100,46 @@ class MQTTClient(mqtt.Client):
                             last_alert_time = TIMEZONE.localize(last_alert_time)
                             
                         time_since_last = get_current_est_time() - last_alert_time
-                        if time_since_last < DUPLICATE_THRESHOLD:
-                            logger.info(f"Found recent alert from {last_alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')} "
-                                      f"({time_since_last.total_seconds():.0f} seconds ago)")
-                            return True
+                        # if time_since_last < DUPLICATE_THRESHOLD:
+                        #     logger.info(f"Found recent alert from {last_alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')} "
+                        #                 f"({time_since_last.total_seconds():.0f} seconds ago)")
+                        #     return True
                             
                     return False
                     
         except Exception as e:
             logger.error(f"Error checking recent alerts: {e}")
+            return False
+
+    def check_recent_status_change(self, device_id):
+        """Check if there's been a recent status change for this device"""
+        try:
+            with self.db_service.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    # Get the most recent status update time for this device
+                    query = """
+                        SELECT updated_at 
+                        FROM devices 
+                        WHERE id = %s
+                    """
+                    cursor.execute(query, (device_id,))
+                    result = cursor.fetchone()
+                    
+                    if result:
+                        last_update = result['updated_at']
+                        # Make sure the timestamp has timezone info
+                        if not last_update.tzinfo:
+                            last_update = TIMEZONE.localize(last_update)
+                            
+                        time_since_update = get_current_est_time() - last_update
+                        if time_since_update < STATUS_CHANGE_THRESHOLD:
+                            logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
+                            return True
+                            
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Error checking recent status change: {e}")
             return False
 
     def on_connect(self, client, userdata, flags, reason_code, properties):
@@ -179,44 +211,48 @@ class MQTTClient(mqtt.Client):
                         return
                     
                     # Check for recent alerts for this RFID tag
-                    if self.check_recent_alert(rfid_tag):
-                        logger.info(f"Skipping duplicate alert for RFID tag {rfid_tag}")
-                        return
+                    # if self.check_recent_alert(rfid_tag):
+                    #     logger.info(f"Skipping duplicate alert for RFID tag {rfid_tag}")
+                    #     return
                     
                     # Look up device by RFID tag
                     device = self.db_service.get_device_by_rfid(rfid_tag)
                     if device:
                         logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
                         
-                        # Update device status to Missing
-                        try:
-                            update_query = """
-                                UPDATE devices 
-                                SET status = 'Missing',
-                                    updated_at = %s,
-                                    serial_number = serial_number,
-                                    model = model,
-                                    manufacturer = manufacturer,
-                                    rfid_tag = rfid_tag,
-                                    barcode = barcode,
-                                    hospital_id = hospital_id,
-                                    location_id = location_id,
-                                    assigned_to = assigned_to,
-                                    purchase_date = purchase_date,
-                                    last_maintenance_date = last_maintenance_date,
-                                    eol_date = eol_date,
-                                    eol_status = eol_status,
-                                    eol_notes = eol_notes,
-                                    created_at = created_at
-                                WHERE id = %s
-                            """
-                            with self.db_service.get_connection() as connection:
-                                with connection.cursor() as cursor:
-                                    cursor.execute(update_query, (get_current_est_time(), device['id']))
-                                    connection.commit()
-                            logger.info(f"Updated device {device['id']} status to Missing while preserving other fields")
-                        except Exception as e:
-                            logger.error(f"Error updating device status: {e}")
+                        # Check if we should update the status based on time threshold
+                        if not self.check_recent_status_change(device['id']):
+                            # Update device status to Missing
+                            try:
+                                update_query = """
+                                    UPDATE devices 
+                                    SET status = 'Missing',
+                                        updated_at = %s,
+                                        serial_number = serial_number,
+                                        model = model,
+                                        manufacturer = manufacturer,
+                                        rfid_tag = rfid_tag,
+                                        barcode = barcode,
+                                        hospital_id = hospital_id,
+                                        location_id = location_id,
+                                        assigned_to = assigned_to,
+                                        purchase_date = purchase_date,
+                                        last_maintenance_date = last_maintenance_date,
+                                        eol_date = eol_date,
+                                        eol_status = eol_status,
+                                        eol_notes = eol_notes,
+                                        created_at = created_at
+                                    WHERE id = %s
+                                """
+                                with self.db_service.get_connection() as connection:
+                                    with connection.cursor() as cursor:
+                                        cursor.execute(update_query, (get_current_est_time(), device['id']))
+                                        connection.commit()
+                                logger.info(f"Updated device {device['id']} status to Missing")
+                            except Exception as e:
+                                logger.error(f"Error updating device status: {e}")
+                        else:
+                            logger.info(f"Skipping status update for device {device['id']} due to recent change")
                         
                         # Create RFID alert with Eastern Time
                         alert = RFIDAlert(
