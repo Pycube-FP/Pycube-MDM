@@ -30,7 +30,6 @@ def create_test_data():
     # Create test hospitals
     hospitals = [
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="BayCare Alliant Hospital",
             code="BAH",
             address="601 Main St",
@@ -40,7 +39,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="BayCare Hospital Wesley Chapel",
             code="BHWC",
             address="602 Oak Ave",
@@ -50,7 +48,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Bartow Regional Medical Center",
             code="BRMC",
             address="603 Pine Rd",
@@ -60,7 +57,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Mease Countryside Hospital",
             code="MCH",
             address="604 Elm St",
@@ -70,7 +66,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Mease Dunedin Hospital",
             code="MDH",
             address="605 Maple Dr",
@@ -80,7 +75,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Morton Plant Hospital",
             code="MPH",
             address="606 Oak St",
@@ -90,7 +84,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Morton Plant North Bay Hospital",
             code="MPNBH",
             address="607 Pine St",
@@ -100,7 +93,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="South Florida Baptist Hospital",
             code="SFBH",
             address="608 Main St",
@@ -110,7 +102,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Anthony's Hospital",
             code="SAH",
             address="609 Beach Dr",
@@ -120,7 +111,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Hospital",
             code="SJH",
             address="610 MLK Blvd",
@@ -130,7 +120,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Children's Hospital",
             code="SJCH",
             address="611 MLK Blvd",
@@ -140,7 +129,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Women's Hospital",
             code="SJWH",
             address="612 MLK Blvd",
@@ -150,7 +138,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Hospital-North",
             code="SJHN",
             address="613 Van Dyke Rd",
@@ -160,7 +147,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="St. Joseph's Hospital-South",
             code="SJHS",
             address="614 Big Bend Rd",
@@ -170,7 +156,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Winter Haven Hospital",
             code="WHH",
             address="615 First St N",
@@ -180,7 +165,6 @@ def create_test_data():
             status="Active"
         ),
         Hospital(
-            id=str(uuid.uuid4()),  # Explicitly set ID
             name="Winter Haven Women's Hospital",
             code="WHWH",
             address="616 First St N",
@@ -194,8 +178,8 @@ def create_test_data():
     hospital_ids = []
     for hospital in hospitals:
         try:
-            hospital_ids.append(hospital.id)  # Store the pre-generated ID
-            db_service.create_hospital(hospital)
+            hospital_id = db_service.create_hospital(hospital)
+            hospital_ids.append(hospital_id)
             print(f"Created hospital: {hospital.name}")
         except Exception as e:
             print(f"Error creating hospital {hospital.name}: {e}")

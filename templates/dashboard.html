@@ -244,7 +244,13 @@
             <div class="stat-value">{{ stats.missing_count }}</div>
             <div class="stat-trend trend-down">
                 <i class="fas fa-arrow-up"></i>
-                <span>{{ (stats.missing_count / stats.total_count * 100)|round(1) }}% of Total</span>
+                <span>
+                    {% if stats.total_count > 0 %}
+                        {{ (stats.missing_count / stats.total_count * 100)|round(1) }}% of Total
+                    {% else %}
+                        0% of Total
+                    {% endif %}
+                </span>
             </div>
         </div>
         
@@ -259,7 +265,13 @@
             <div class="stat-value">{{ stats.status_counts.get('In-Facility', 0) }}</div>
             <div class="stat-trend trend-up">
                 <i class="fas fa-arrow-up"></i>
-                <span>{{ (stats.status_counts.get('In-Facility', 0) / stats.total_count * 100)|round(1) }}% of Total</span>
+                <span>
+                    {% if stats.total_count > 0 %}
+                        {{ (stats.status_counts.get('In-Facility', 0) / stats.total_count * 100)|round(1) }}% of Total
+                    {% else %}
+                        0% of Total
+                    {% endif %}
+                </span>
             </div>
         </div>
         
@@ -321,21 +333,22 @@
     document.addEventListener('DOMContentLoaded', function() {
         // Status Distribution Chart
         const statusCtx = document.getElementById('statusChart').getContext('2d');
+        const statusData = [
+            {{ stats.status_counts.get('In-Facility', 0) }},
+            {{ stats.status_counts.get('Missing', 0) }},
+            {{ stats.status_counts.get('Maintenance', 0) }}
+        ];
+        
+        // Only create chart if there's data
         const statusChart = new Chart(statusCtx, {
             type: 'doughnut',
             data: {
                 labels: ['In-Facility', 'Missing', 'Maintenance'],
                 datasets: [{
-                    data: [
-                        {{ stats.status_counts.get('In-Facility', 0) }},
-                        {{ stats.status_counts.get('Missing', 0) }},
-                        {{ stats.status_counts.get('Maintenance', 0) }}
-                    ],
-                    backgroundColor: [
-                        '#28a745',
-                        '#dc3545',
-                        '#ffc107'
-                    ],
+                    data: statusData.every(val => val === 0) ? [1] : statusData,  // Show empty chart if no data
+                    backgroundColor: statusData.every(val => val === 0) ? 
+                        ['#e9ecef'] :  // Gray color for empty chart
+                        ['#28a745', '#dc3545', '#ffc107'],
                     borderWidth: 0
                 }]
             },
@@ -359,14 +372,19 @@
 
         // Movement Trends Chart
         const movementCtx = document.getElementById('movementChart').getContext('2d');
-        const movementData = {{ stats.movement_counts|tojson }};
+        const movementData = {{ stats.movement_counts|tojson if stats.movement_counts else '[]' }};
+        
         const movementChart = new Chart(movementCtx, {
             type: 'line',
             data: {
-                labels: movementData.map(item => new Date(item.date).toLocaleDateString()),
+                labels: movementData.length ? 
+                    movementData.map(item => new Date(item.date).toLocaleDateString()) :
+                    ['No Data'],
                 datasets: [{
                     label: 'Device Movements',
-                    data: movementData.map(item => item.count),
+                    data: movementData.length ?
+                        movementData.map(item => item.count) :
+                        [0],
                     borderColor: '#0176D3',
                     backgroundColor: 'rgba(1, 118, 211, 0.1)',
                     fill: true,
