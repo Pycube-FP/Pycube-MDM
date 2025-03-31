@@ -103,38 +103,12 @@ def create_test_data():
     device_id = db_service.create_device(device)
     print(f"Created device: {device.model} with RFID tag {device.rfid_tag}")
 
-    # Create test RFID alerts
-    current_time = get_current_est_time()
-    for i in range(3):
-        # Alternate between locations for test alerts
-        location = locations[i % 2]
-        alert_time = current_time - timedelta(hours=i)
-        
-        alert = RFIDAlert(
-            device_id=device_id,
-            reader_code=reader_code,
-            antenna_number=(i % 2) + 1,
-            rfid_tag=device.rfid_tag,
-            hospital_id=hospital_id,
-            location_id=location["id"],
-            timestamp=alert_time,
-            created_at=alert_time,
-            updated_at=alert_time
-        )
-        
-        try:
-            db_service.record_movement(alert)
-            print(f"Created test alert at {alert_time.strftime('%Y-%m-%d %H:%M:%S %Z')} in {location['name']}")
-        except Exception as e:
-            print(f"Error creating test alert: {e}")
-
     print("\nTest data creation completed!")
     print("Summary:")
     print(f"- Created hospital: {hospital.name}")
     print(f"- Created {len(locations)} locations: {', '.join(l['name'] for l in locations)}")
     print(f"- Created reader {reader_code} with 2 antennas")
     print(f"- Created device: {device.model} with RFID tag {device.rfid_tag}")
-    print(f"- Created 3 test alerts")
 
 if __name__ == "__main__":
     create_test_data() 
