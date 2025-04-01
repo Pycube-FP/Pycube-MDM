@@ -2059,12 +2059,24 @@ class DBService:
             if alert_timestamp and not alert_timestamp.tzinfo:
                 alert_timestamp = TIMEZONE.localize(alert_timestamp)
             
+            # Look up the reader based on reader_code and antenna_number if provided
+            reader_id = None
+            if rfid_alert.reader_code and rfid_alert.antenna_number:
+                reader_query = """
+                    SELECT id FROM readers 
+                    WHERE reader_code = %s AND antenna_number = %s
+                """
+                cursor.execute(reader_query, (rfid_alert.reader_code, rfid_alert.antenna_number))
+                reader_result = cursor.fetchone()
+                if reader_result:
+                    reader_id = reader_result['id']
+            
             # Create RFID alert
             alert_query = """
                 INSERT INTO rfid_alerts (
-                    id, device_id, hospital_id, reader_id, location_id,
+                    id, device_id, hospital_id, reader_id, reader_code, antenna_number, location_id,
                     status, previous_status, timestamp, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             # Get the values for the alert
@@ -2072,7 +2084,9 @@ class DBService:
                 rfid_alert.id,  # Use the ID from the RFIDAlert object
                 device['id'],
                 device['hospital_id'],
-                rfid_alert.reader_id,  # Include reader_id from the RFIDAlert
+                reader_id,  # This may be None if reader lookup failed
+                rfid_alert.reader_code,
+                rfid_alert.antenna_number,
                 rfid_alert.location_id,
                 'Missing',  # Status is always "Missing" for this alert type
                 rfid_alert.previous_status,
@@ -2084,7 +2098,7 @@ class DBService:
             cursor.execute(alert_query, alert_values)
             connection.commit()
             
-            print(f"Created Missing alert for device {device['id']} (previous status: {rfid_alert.previous_status}, reader_id: {rfid_alert.reader_id})")
+            print(f"Created Missing alert for device {device['id']} (previous status: {rfid_alert.previous_status}, reader_code: {rfid_alert.reader_code}, antenna: {rfid_alert.antenna_number})")
             return rfid_alert.id
             
         except Exception as e:
