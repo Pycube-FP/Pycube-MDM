@@ -236,6 +236,7 @@ class MQTTClient(mqtt.Client):
                     device = self.db_service.get_device_by_rfid(rfid_tag)
                     if device:
                         logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
+                        logger.info(f"Device current status: {device['status']}, Last update time: {device['updated_at']}")
                         
                         # Store previous status for alert
                         previous_status = device['status']
@@ -243,11 +244,13 @@ class MQTTClient(mqtt.Client):
                         
                         # If device is in facility, mark as temporarily out immediately
                         if device['status'] == 'In-Facility':
+                            logger.info(f"Attempting to change device status from In-Facility to Temporarily Out")
                             result = self.db_service.update_device_status(device['id'], 'Temporarily Out')
                             current_status = 'Temporarily Out'
                             logger.info(f"Device {device['id']} marked as Temporarily Out - success: {result}")
                         # If device is temporarily out or missing, mark as in-facility immediately
                         elif device['status'] == 'Temporarily Out' or device['status'] == 'Missing':
+                            logger.info(f"Attempting to change device status from {device['status']} to In-Facility")
                             result = self.db_service.update_device_status(device['id'], 'In-Facility')
                             current_status = 'In-Facility'
                             logger.info(f"Device {device['id']} marked as In-Facility (was: {device['status']}) - success: {result}")
@@ -271,6 +274,7 @@ class MQTTClient(mqtt.Client):
                             alert.previous_status = previous_status
                             
                             # Record the movement (this will create both reader_event and rfid_alert)
+                            logger.info(f"Creating alert with status: {alert.status}, previous status: {alert.previous_status}")
                             self.db_service.record_movement(alert)
                             logger.info(f"Created alert for device {device['id']} at reader {reader_code} (antenna {antenna_number})")
                         except Exception as e:
