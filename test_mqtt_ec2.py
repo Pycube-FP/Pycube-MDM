@@ -58,7 +58,9 @@ MISSING_THRESHOLD = timedelta(minutes=2)  # Time after which a temporarily out d
 
 def get_current_est_time():
     """Get current time in Eastern Time"""
-    return datetime.now(TIMEZONE)
+    # Create a timezone-aware UTC time and then convert to EST
+    utc_now = datetime.now(pytz.UTC)
+    return utc_now.astimezone(TIMEZONE)
 
 def verify_certificates():
     """Verify all certificate files exist and are readable"""
@@ -136,6 +138,10 @@ class MQTTClient:
             try:
                 result = self.db_service.execute_query("SELECT 1")
                 logger.info("Database connection test successful")
+                
+                # Check timezone settings to help diagnose time-related issues
+                self.check_database_timezone()
+                
             except Exception as e:
                 logger.error(f"Database connection test failed: {e}", exc_info=True)
                 
@@ -163,25 +169,36 @@ class MQTTClient:
                         return
                     
                     current_time = get_current_est_time()
+                    logger.info(f"Current time: {current_time} (TZ: {current_time.tzinfo})")
                     marked_missing_count = 0
                     
                     for device in temp_out_devices:
                         # Make sure the timestamp has timezone info
                         last_update = device['updated_at']
+                        logger.info(f"Original last_update for device {device['id']}: {last_update} (TZ: {last_update.tzinfo if hasattr(last_update, 'tzinfo') else None})")
+                        
                         if not last_update.tzinfo:
                             last_update = TIMEZONE.localize(last_update)
+                            logger.info(f"Localized last_update: {last_update} (TZ: {last_update.tzinfo})")
                             
-                        time_since_update = current_time - last_update
-                        time_minutes = time_since_update.total_seconds() / 60
+                        # Fix for negative time values - ensure we're comparing times correctly
+                        time_diff_seconds = (current_time - last_update).total_seconds()
+                        time_since_update = abs(time_diff_seconds) / 60
                         
-                        logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')}) has been out for {time_minutes:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60} minutes)")
+                        logger.info(f"Raw time difference: {time_diff_seconds:.1f} seconds ({time_diff_seconds/60:.1f} minutes)")
+                        logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')}) has been out for {time_since_update:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60} minutes)")
                         
-                        if time_since_update >= MISSING_THRESHOLD:
-                            result = self.db_service.update_device_status(device['id'], 'Missing')
-                            logger.info(f"Device {device['id']} has been out for {time_minutes:.1f} minutes - marking as Missing - success: {result}")
-                            marked_missing_count += 1
+                        # Use actual positive time since update for comparison
+                        if time_since_update >= MISSING_THRESHOLD.total_seconds() / 60:
+                            # Verify this is actually a valid case before marking missing
+                            if time_diff_seconds > 0:  # Only mark as missing if time is actually in the past
+                                result = self.db_service.update_device_status(device['id'], 'Missing')
+                                logger.info(f"Device {device['id']} has been out for {time_since_update:.1f} minutes - marking as Missing - success: {result}")
+                                marked_missing_count += 1
+                            else:
+                                logger.warning(f"Device {device['id']} shows negative time ({time_diff_seconds/60:.1f} mins) - possible clock or timezone issue, not marking as Missing")
                         else:
-                            logger.info(f"Device {device['id']} has not exceeded the threshold ({time_minutes:.1f} < {MISSING_THRESHOLD.total_seconds()/60} minutes) - no status change")
+                            logger.info(f"Device {device['id']} has not exceeded the threshold ({time_since_update:.1f} < {MISSING_THRESHOLD.total_seconds()/60} minutes) - no status change")
                     
                     logger.info(f"Marked {marked_missing_count} of {len(temp_out_devices)} devices as Missing based on time threshold")
             
@@ -451,6 +468,10 @@ class MQTTClient:
                 self.scheduler.start()
                 logger.info("Scheduler restarted successfully with %d jobs", len(self.scheduler.get_jobs()))
                 
+                # Log timezone information to help debug time-related issues
+                current_time = get_current_est_time()
+                logger.info(f"Current time when starting scheduler: {current_time} (TZ: {current_time.tzinfo})")
+                
                 # Force immediate run
                 self.check_for_missing_devices()
         except Exception as e:
@@ -474,6 +495,35 @@ class MQTTClient:
         except Exception as e:
             logger.warning(f"Failed to enable MQTT client internal logging: {e}")
             # Continue without internal logging
+
+    def check_database_timezone(self):
+        """Check the database server timezone and connection settings"""
+        try:
+            logger.info("Checking database timezone settings...")
+            with self.db_service.get_connection() as connection:
+                with connection.cursor() as cursor:
+                    # Check database server timezone
+                    cursor.execute("SELECT @@global.time_zone, @@session.time_zone")
+                    result = cursor.fetchone()
+                    if result:
+                        global_tz, session_tz = result
+                        logger.info(f"Database timezone settings - Global: {global_tz}, Session: {session_tz}")
+                    
+                    # Check current timestamp from database
+                    cursor.execute("SELECT NOW(), CURRENT_TIMESTAMP()")
+                    result = cursor.fetchone()
+                    if result:
+                        db_now, db_timestamp = result
+                        logger.info(f"Database current time - NOW(): {db_now}, CURRENT_TIMESTAMP(): {db_timestamp}")
+                    
+                    # Check system time
+                    system_now = datetime.now()
+                    system_now_utc = datetime.now(pytz.UTC)
+                    system_now_est = get_current_est_time()
+                    logger.info(f"System time - Local: {system_now}, UTC: {system_now_utc}, EST: {system_now_est}")
+                    
+        except Exception as e:
+            logger.error(f"Error checking database timezone: {e}", exc_info=True)
 
 def main():
     # Verify certificates exist
