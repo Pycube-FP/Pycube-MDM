@@ -2025,4 +2025,66 @@ class DBService:
             return alert
         finally:
             cursor.close()
+            connection.close()
+
+    def create_alert_for_missing_device(self, rfid_alert):
+        """Create an RFID alert for a device that has been automatically marked as Missing"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # First get the device details to validate and get hospital_id
+            device_query = """
+                SELECT d.*, h.id as hospital_id
+                FROM devices d
+                LEFT JOIN hospitals h ON d.hospital_id = h.id
+                WHERE d.id = %s
+            """
+            cursor.execute(device_query, (rfid_alert.device_id,))
+            device = cursor.fetchone()
+            
+            if not device:
+                raise Exception(f"Device with ID {rfid_alert.device_id} not found")
+            
+            # Use timezone-aware EST timestamp
+            current_time_est = datetime.now(TIMEZONE)
+            
+            # Ensure rfid_alert timestamp has timezone info
+            alert_timestamp = rfid_alert.timestamp
+            if alert_timestamp and not alert_timestamp.tzinfo:
+                alert_timestamp = TIMEZONE.localize(alert_timestamp)
+            
+            # Create RFID alert
+            alert_query = """
+                INSERT INTO rfid_alerts (
+                    id, device_id, hospital_id, location_id,
+                    status, previous_status, timestamp, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """
+            
+            # Get the values for the alert
+            alert_values = (
+                rfid_alert.id,  # Use the ID from the RFIDAlert object
+                device['id'],
+                device['hospital_id'],
+                rfid_alert.location_id,
+                'Missing',  # Status is always "Missing" for this alert type
+                rfid_alert.previous_status,
+                alert_timestamp,
+                current_time_est,
+                current_time_est
+            )
+            
+            cursor.execute(alert_query, alert_values)
+            connection.commit()
+            
+            print(f"Created Missing alert for device {device['id']} (previous status: {rfid_alert.previous_status})")
+            return rfid_alert.id
+            
+        except Exception as e:
+            connection.rollback()
+            print(f"Error creating alert for missing device: {e}")
+            raise
+        finally:
+            cursor.close()
             connection.close() 

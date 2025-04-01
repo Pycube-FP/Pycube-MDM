@@ -204,7 +204,7 @@ class MQTTClient(mqtt.Client):
             with self.db_service.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
                     query = """
-                        SELECT id, updated_at, serial_number
+                        SELECT id, updated_at, serial_number, rfid_tag, location_id, status
                         FROM devices
                         WHERE status = 'Temporarily Out'
                     """
@@ -247,9 +247,35 @@ class MQTTClient(mqtt.Client):
                         
                         # Check if time difference is positive and exceeds the threshold
                         if time_diff_seconds > 0 and time_diff_seconds >= MISSING_THRESHOLD.total_seconds():
+                            # Store previous status for alert
+                            previous_status = device['status']
+                            
                             # Mark as missing
                             result = self.db_service.update_device_status(device['id'], 'Missing')
                             logger.info(f"  ACTION: Marking as Missing - success: {result}")
+                            
+                            if result:
+                                # Create an RFID alert for the missing device
+                                try:
+                                    # Fetch device location information
+                                    location_id = device['location_id']
+                                    
+                                    # Create an alert object
+                                    alert = RFIDAlert(
+                                        device_id=device['id'],
+                                        rfid_tag=device['rfid_tag'],
+                                        location_id=location_id,
+                                        timestamp=current_time_est,
+                                        status='Missing',
+                                        previous_status=previous_status
+                                    )
+                                    
+                                    # Record the alert
+                                    self.db_service.create_alert_for_missing_device(alert)
+                                    logger.info(f"  Created missing device alert for device {device['id']}")
+                                except Exception as e:
+                                    logger.error(f"  Error creating alert for missing device: {e}")
+                                
                             marked_missing_count += 1
                         elif time_diff_seconds <= 0:
                             # Time difference is negative or zero (future or current timestamp)
