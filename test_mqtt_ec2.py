@@ -12,7 +12,6 @@ from services.db_service import DBService
 from models.rfid_alert import RFIDAlert
 import uuid
 from apscheduler.schedulers.background import BackgroundScheduler
-import traceback
 
 # Import configuration
 try:
@@ -246,129 +245,115 @@ class MQTTClient(mqtt.Client):
 
     def check_for_missing_devices(self):
         """Check for devices that have been temporarily out for too long and mark them as missing"""
-        print(f"Checking for devices that have been temporarily out for too long...")
-        
-        connection = self.get_connection()
-        cursor = connection.cursor(dictionary=True)
-        
         try:
-            # Get current time in EST
-            current_time_est = get_current_est_time()
-            print(f"Current time (EST): {current_time_est}")
+            logger.info("===== SCHEDULED TASK: CHECKING FOR MISSING DEVICES =====")
+            with self.db_service.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    # Query expanded to include the most recent reader_event for this device
+                    # Use a CTE to get the latest reader event for each temporarily out device
+                    query = """
+                        WITH latest_events AS (
+                            SELECT re.device_id, re.reader_id, r.reader_code, r.antenna_number,
+                                   ROW_NUMBER() OVER(PARTITION BY re.device_id ORDER BY re.timestamp DESC) as rn
+                            FROM reader_events re
+                            JOIN readers r ON re.reader_id = r.id
+                        )
+                        SELECT d.id, d.updated_at, d.serial_number, d.rfid_tag, d.location_id, d.status,
+                               le.reader_id as last_reader_id, le.reader_code, le.antenna_number
+                        FROM devices d
+                        LEFT JOIN latest_events le ON d.id = le.device_id AND le.rn = 1
+                        WHERE d.status = 'Temporarily Out'
+                    """
+                    cursor.execute(query)
+                    temp_out_devices = cursor.fetchall()
+                    
+                    logger.info(f"Found {len(temp_out_devices)} devices with 'Temporarily Out' status")
+                    
+                    if len(temp_out_devices) == 0:
+                        logger.info("No devices to check for missing status")
+                        logger.info("===== FINISHED CHECKING FOR MISSING DEVICES =====")
+                        return
+                    
+                    # Get current time in EST for reliable comparison
+                    current_time_est = get_current_est_time()
+                    logger.info(f"Current time (EST): {current_time_est}")
+                    
+                    marked_missing_count = 0
+                    
+                    for device in temp_out_devices:
+                        # Make sure the timestamp has timezone info, assuming it's stored in EST
+                        last_update = device['updated_at']
+                        
+                        logger.info(f"Raw last_update: {last_update} (TZ info: {last_update.tzinfo if hasattr(last_update, 'tzinfo') else 'None'})")
+                        
+                        # Add EST timezone info if it's missing
+                        if not last_update.tzinfo:
+                            last_update_est = TIMEZONE.localize(last_update)
+                            logger.info(f"Adding EST timezone info: {last_update_est}")
+                        else:
+                            last_update_est = last_update
+                        
+                        # Calculate time difference in seconds and minutes
+                        time_diff_seconds = (current_time_est - last_update_est).total_seconds()
+                        time_diff_minutes = time_diff_seconds / 60
+                        
+                        logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')})")
+                        logger.info(f"  Last update: {last_update_est}")
+                        logger.info(f"  Time difference: {time_diff_minutes:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60:.1f} minutes)")
+                        
+                        # Check if time difference is positive and exceeds the threshold
+                        if time_diff_seconds > 0 and time_diff_seconds >= MISSING_THRESHOLD.total_seconds():
+                            # Store previous status for alert
+                            previous_status = device['status']
+                            
+                            # Mark as missing
+                            result = self.db_service.update_device_status(device['id'], 'Missing')
+                            logger.info(f"  ACTION: Marking as Missing - success: {result}")
+                            
+                            if result:
+                                # Create an RFID alert for the missing device
+                                try:
+                                    # Fetch device location information
+                                    location_id = device['location_id']
+                                    
+                                    # Get reader code and antenna number from the latest reader event
+                                    reader_code = device.get('reader_code')
+                                    antenna_number = device.get('antenna_number')
+                                    
+                                    logger.info(f"  Last reader info - code: {reader_code}, antenna: {antenna_number}")
+                                    
+                                    # Create an alert object with reader information
+                                    alert = RFIDAlert(
+                                        device_id=device['id'],
+                                        rfid_tag=device['rfid_tag'],
+                                        location_id=location_id,
+                                        reader_code=reader_code,
+                                        antenna_number=antenna_number,
+                                        timestamp=current_time_est,
+                                        status='Missing',
+                                        previous_status=previous_status
+                                    )
+                                    
+                                    # Record the alert
+                                    self.db_service.create_alert_for_missing_device(alert)
+                                    logger.info(f"  Created missing device alert for device {device['id']} with reader code {reader_code}, antenna {antenna_number}")
+                                except Exception as e:
+                                    logger.error(f"  Error creating alert for missing device: {e}")
+                                
+                            marked_missing_count += 1
+                        elif time_diff_seconds <= 0:
+                            # Time difference is negative or zero (future or current timestamp)
+                            logger.warning(f"  WARNING: Device has a future timestamp - time diff: {time_diff_minutes:.1f} minutes")
+                            logger.warning(f"  No status change applied due to suspicious timestamp")
+                        else:
+                            # Time difference is positive but below threshold
+                            logger.info(f"  Not yet eligible for Missing status - time diff {time_diff_minutes:.1f} min < threshold {MISSING_THRESHOLD.total_seconds()/60:.1f} min")
+                    
+                    logger.info(f"Marked {marked_missing_count} of {len(temp_out_devices)} devices as Missing based on time threshold")
             
-            # Time threshold - devices that have been temporarily out for more than this will be marked as missing
-            time_threshold = current_time_est - timedelta(hours=24)
-            print(f"Time threshold (EST): {time_threshold}")
-            
-            # Find devices marked as "Temporarily Out" with last update before the threshold
-            query = """
-                WITH latest_reader_events AS (
-                    SELECT 
-                        re.device_id,
-                        re.reader_code,
-                        re.antenna_number,
-                        re.timestamp,
-                        ROW_NUMBER() OVER (PARTITION BY re.device_id ORDER BY re.timestamp DESC) as rn
-                    FROM 
-                        reader_events re
-                    JOIN 
-                        devices d ON re.device_id = d.id
-                    WHERE 
-                        d.status = 'Temporarily Out'
-                )
-                SELECT 
-                    d.id as device_id, 
-                    d.name as device_name,
-                    d.mac_address,
-                    d.asset_number,
-                    d.status as current_status,
-                    d.updated_at as last_update,
-                    h.id as hospital_id,
-                    lre.reader_code,
-                    lre.antenna_number,
-                    lre.timestamp as last_reader_event_time
-                FROM 
-                    devices d
-                LEFT JOIN 
-                    hospitals h ON d.hospital_id = h.id
-                LEFT JOIN
-                    latest_reader_events lre ON d.id = lre.device_id AND lre.rn = 1
-                WHERE 
-                    d.status = 'Temporarily Out'
-                    AND d.updated_at < %s
-            """
-            
-            cursor.execute(query, (time_threshold,))
-            devices = cursor.fetchall()
-            
-            print(f"Found {len(devices)} devices that have been temporarily out for too long")
-            
-            # For each device, update status to "Missing" and create an alert
-            count = 0
-            for device in devices:
-                device_id = device['device_id']
-                last_update = device['last_update']
-                
-                # Warning if last_update is naive
-                if not is_aware(last_update):
-                    print(f"WARNING: Device {device_id} has a naive datetime for last_update: {last_update}")
-                    # Assume it's in EST
-                    last_update = TIMEZONE.localize(last_update)
-                
-                if last_update.tzinfo != TIMEZONE:
-                    print(f"WARNING: Device {device_id} has a last_update with timezone {last_update.tzinfo} instead of {TIMEZONE}")
-                    # Convert to EST
-                    last_update = last_update.astimezone(TIMEZONE)
-                
-                # Hours since last update
-                hours_since_update = (current_time_est - last_update).total_seconds() / 3600
-                
-                print(f"Device {device_id} ({device['device_name']}) - Last updated: {last_update} ({hours_since_update:.2f} hours ago)")
-                print(f"  - MAC: {device['mac_address']}, Asset #: {device['asset_number']}")
-                print(f"  - Reader Code: {device['reader_code']}, Antenna: {device['antenna_number']}")
-                
-                # Update device status to "Missing"
-                update_query = """
-                    UPDATE devices
-                    SET status = 'Missing', updated_at = %s
-                    WHERE id = %s
-                """
-                cursor.execute(update_query, (current_time_est, device_id))
-                
-                # Create RFID alert (using reader_code and antenna_number from last reader event)
-                alert_id = str(uuid.uuid4())
-                rfid_alert = RFIDAlert(
-                    id=alert_id,
-                    device_id=device_id,
-                    hospital_id=device['hospital_id'],
-                    location_id=None,  # Location is unknown for missing devices
-                    reader_code=device['reader_code'],
-                    antenna_number=device['antenna_number'],
-                    previous_status='Temporarily Out',
-                    timestamp=current_time_est
-                )
-                
-                try:
-                    # Create alert for missing device
-                    db_service = DBService()
-                    db_service.create_alert_for_missing_device(rfid_alert)
-                    count += 1
-                except Exception as e:
-                    print(f"Error creating alert for missing device {device_id}: {e}")
-            
-            if count > 0:
-                connection.commit()
-                print(f"Updated {count} devices from 'Temporarily Out' to 'Missing'")
-            else:
-                print("No devices were updated to 'Missing'")
-                
+            logger.info("===== FINISHED CHECKING FOR MISSING DEVICES =====")
         except Exception as e:
-            connection.rollback()
-            print(f"Error checking for missing devices: {e}")
-            traceback.print_exc()
-        finally:
-            cursor.close()
-            connection.close()
+            logger.error(f"Error checking for missing devices: {e}", exc_info=True)
 
     def check_and_update_status(self, device_id, current_status):
         """Check device status and update if needed based on time thresholds"""
