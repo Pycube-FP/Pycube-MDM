@@ -1,13 +1,16 @@
 import os
 import mysql.connector
 from mysql.connector import pooling
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 from dotenv import load_dotenv
 import uuid
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Define time threshold constants
+MISSING_THRESHOLD = timedelta(minutes=45)  # Time after which a temporarily out device is considered missing
 
 class DBService:
     """Service to handle database operations"""
@@ -617,24 +620,111 @@ class DBService:
             cursor.close()
             connection.close()
     
-    def get_device_movements(self, device_id, limit=10):
-        """Get reader events for a specific device"""
+    def get_device_movements(self, device_id, limit=50):
+        """Get reader events for a specific device with location information and ordered by time"""
         connection = self.get_connection()
         cursor = connection.cursor(dictionary=True)
         
         try:
+            # First, get the current device status to use for comparison
+            cursor.execute("SELECT status FROM devices WHERE id = %s", (device_id,))
+            current_device = cursor.fetchone()
+            current_status = current_device['status'] if current_device else 'In-Facility'
+            
+            # We need to find status transitions by comparing event timestamps
             query = """
-                SELECT re.*, l.name as location_name,
-                       CONCAT(re.reader_code, ' (Antenna ', re.antenna_number, ')') as reader_id
+                SELECT 
+                    re.id,
+                    re.timestamp,
+                    re.device_id,
+                    re.location_id,
+                    re.rfid_tag,
+                    re.reader_code,
+                    re.antenna_number,
+                    l.name as location_name,
+                    r.name as reader_name,
+                    CONCAT(re.reader_code, ' (', r.name, ')') as reader_id
                 FROM reader_events re
                 LEFT JOIN locations l ON re.location_id = l.id
+                LEFT JOIN readers r ON re.reader_code = r.reader_code AND re.antenna_number = r.antenna_number
                 WHERE re.device_id = %s
                 ORDER BY re.timestamp DESC
                 LIMIT %s
             """
             cursor.execute(query, (device_id, limit))
-            result = cursor.fetchall()
-            return result
+            events = cursor.fetchall()
+            
+            if not events:
+                return []
+                
+            # Get previous state for each event
+            previous_state = current_status  # Start with current device state
+            
+            for event in events:
+                # Reset event status info
+                event['event_status'] = None
+                event['status_transition'] = None
+                
+                # For the first event (most recent), we need to determine what happened
+                if event == events[0]:
+                    if current_status == 'Missing':
+                        # If device is currently missing - first event triggered missing status
+                        event['event_status'] = 'Missing'
+                        event['status_transition'] = 'Temporarily Out → Missing'
+                    elif current_status == 'Temporarily Out':
+                        # If device is temporarily out - first event triggered temporary out
+                        event['event_status'] = 'Temporarily Out'
+                        event['status_transition'] = 'In-Facility → Temporarily Out'
+                    elif current_status == 'In-Facility':
+                        # If device is currently in-facility - three possible cases:
+                        if len(events) > 1:
+                            # Compare with previous event
+                            time_diff = (event['timestamp'] - events[1]['timestamp']).total_seconds()
+                            
+                            # Get device status history (if available)
+                            status_query = """
+                                SELECT status 
+                                FROM reader_events re
+                                JOIN devices d ON re.device_id = d.id
+                                WHERE re.id = %s
+                            """
+                            cursor.execute(status_query, (events[1]['id'],))
+                            prev_status_result = cursor.fetchone()
+                            prev_status = prev_status_result['status'] if prev_status_result else None
+                            
+                            if prev_status == 'Missing':
+                                # If previous status was Missing, this event is returning from Missing
+                                event['event_status'] = 'In-Facility'
+                                event['status_transition'] = 'Missing → In-Facility'
+                            elif time_diff < MISSING_THRESHOLD.total_seconds():
+                                # If the two most recent events are within the threshold,
+                                # this was likely a return to facility
+                                event['event_status'] = 'In-Facility'
+                                event['status_transition'] = 'Temporarily Out → In-Facility'
+                            else:
+                                # Otherwise it's a standard exit
+                                event['event_status'] = 'Temporarily Out'
+                                event['status_transition'] = 'In-Facility → Temporarily Out'
+                        else:
+                            # First event for device, so it's an exit
+                            event['event_status'] = 'Temporarily Out'
+                            event['status_transition'] = 'In-Facility → Temporarily Out'
+                else:
+                    # For other events, alternate between "exit" and "return" events
+                    # based on the likely state transitions
+                    prev_idx = events.index(event) - 1
+                    prev_event = events[prev_idx]
+                    
+                    if prev_event['status_transition'] == 'In-Facility → Temporarily Out':
+                        # After an exit event comes a return event
+                        event['event_status'] = 'In-Facility'
+                        event['status_transition'] = 'Temporarily Out → In-Facility'
+                    else:
+                        # After a return event comes an exit event
+                        event['event_status'] = 'Temporarily Out'
+                        event['status_transition'] = 'In-Facility → Temporarily Out'
+                
+            return events
         except Exception as e:
             print(f"Error retrieving device reader events: {e}")
             raise
@@ -709,7 +799,7 @@ class DBService:
             # Start building the query with a WHERE 1=1 clause to make dynamic filtering easier
             query = """
                 SELECT a.id, a.timestamp, a.device_id, a.location_id,
-                       d.model as device_name, d.serial_number,
+                       d.model as device_name, d.serial_number, d.status as device_status,
                        l.name as location_name
                 FROM rfid_alerts a
                 LEFT JOIN devices d ON a.device_id = d.id

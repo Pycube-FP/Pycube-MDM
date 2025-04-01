@@ -407,29 +407,127 @@
     
     <hr style="margin: var(--spacing-lg) 0;">
     
-    <h2>Reader Events</h2>
+    <h2>
+        <i class="fas fa-map-marker-alt me-2"></i>
+        Movement History
+    </h2>
+    <p class="text-muted mb-4">Track the device's movement through RFID checkpoints</p>
     
     {% if movements %}
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Timestamp</th>
-                <th>Location</th>
-                <th>Reader ID</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for movement in movements %}
-            <tr>
-                <td>{{ movement.timestamp.strftime('%m/%d/%Y %I:%M %p') if movement.timestamp else 'Unknown' }}</td>
-                <td>{{ movement.location_name or 'Unknown' }}</td>
-                <td>{{ movement.reader_id or 'Unknown' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-hover">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">Location</th>
+                    <th scope="col">Reader</th>
+                    <th scope="col">Status</th>
+                    <th scope="col" class="text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for movement in movements %}
+                <tr>
+                    <td>
+                        <span class="d-block fw-medium">{{ movement.timestamp.strftime('%m/%d/%Y') }}</span>
+                        <small class="text-muted">{{ movement.timestamp.strftime('%I:%M %p') }}</small>
+                    </td>
+                    <td>
+                        <span class="d-block">{{ movement.location_name or 'Unknown Location' }}</span>
+                    </td>
+                    <td>
+                        {{ movement.reader_name or movement.reader_code }}
+                        <small class="text-muted d-block">Antenna {{ movement.antenna_number }}</small>
+                    </td>
+                    <td>
+                        <span class="badge {% if movement.event_status == 'Missing' %}bg-danger
+                                     {% elif movement.event_status == 'In-Facility' %}bg-success
+                                     {% else %}bg-warning{% endif %}">
+                            <i class="fas {% if movement.event_status == 'Missing' %}fa-exclamation-triangle
+                                    {% elif movement.event_status == 'In-Facility' %}fa-sign-in-alt
+                                    {% else %}fa-sign-out-alt{% endif %} me-1"></i> 
+                            {{ movement.status_transition }}
+                        </span>
+                    </td>
+                    <td class="text-center">
+                        <a href="{{ url_for('rfid.alerts') }}?device_id={{ movement.device_id }}" 
+                           class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-history"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">
+                <i class="fas fa-info-circle me-2"></i>
+                Status Transitions at Exit Points
+            </h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge bg-warning me-2">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </span>
+                        <div>
+                            <strong>In-Facility → Temporarily Out</strong>
+                            <div class="small text-muted">Device detected leaving the facility</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge bg-danger me-2">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </span>
+                        <div>
+                            <strong>Temporarily Out → Missing</strong>
+                            <div class="small text-muted">Device not returned within 45 minutes</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge bg-success me-2">
+                            <i class="fas fa-sign-in-alt"></i>
+                        </span>
+                        <div>
+                            <strong>Temporarily Out → In-Facility</strong>
+                            <div class="small text-muted">Device returned to facility</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge bg-success me-2">
+                            <i class="fas fa-check-circle"></i>
+                        </span>
+                        <div>
+                            <strong>Missing → In-Facility</strong>
+                            <div class="small text-muted">Device found after being marked missing</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-2 small text-muted">
+                <i class="fas fa-exclamation-circle me-1"></i>
+                <strong>Note:</strong> When a device is detected at an exit point, it's marked as "Temporarily Out". 
+                If detected again, it's marked as "In-Facility", even if it was previously "Missing".
+                If not detected within 45 minutes, it's marked as "Missing".
+            </div>
+        </div>
+    </div>
     {% else %}
-    <p>No reader events found for this device.</p>
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        No movement history found for this device. Movement will be recorded when the device passes by an RFID reader.
+    </div>
     {% endif %}
 </div>
 

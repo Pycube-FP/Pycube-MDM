@@ -86,29 +86,37 @@ def create_test_data():
         db_service.create_reader(reader)
         print(f"Created reader {reader_code} antenna {i} in {location['name']}")
 
-    # Create one device
-    device = Device(
-        serial_number="iPhone14-001",
-        model="iPhone 14",
-        manufacturer="Apple",
-        rfid_tag="200000001192024000022132",
-        status="In-Facility",
-        hospital_id=hospital_id,
-        location_id=locations[0]["id"],  # Initially in Emergency Room
-        purchase_date=get_current_est_time(),
-        eol_status="Active",
-        created_at=get_current_est_time(),
-        updated_at=get_current_est_time()
-    )
-    device_id = db_service.create_device(device)
-    print(f"Created device: {device.model} with RFID tag {device.rfid_tag}")
+    # Create four devices with sequential RFID tags
+    devices = []
+    base_rfid = "20000000119202400002213"
+    
+    for i in range(4):
+        rfid_tag = f"{base_rfid}{i+2}"  # Tags from 200000001192024000022132 to 200000001192024000022135
+        device = Device(
+            serial_number=f"iPhone14-00{i+1}",
+            model="iPhone 14",
+            manufacturer="Apple",
+            rfid_tag=rfid_tag,
+            status="In-Facility",
+            hospital_id=hospital_id,
+            location_id=locations[0]["id"],  # Initially in Emergency Room
+            purchase_date=get_current_est_time(),
+            eol_status="Active",
+            created_at=get_current_est_time(),
+            updated_at=get_current_est_time()
+        )
+        device_id = db_service.create_device(device)
+        devices.append({"id": device_id, "model": device.model, "rfid_tag": device.rfid_tag})
+        print(f"Created device: {device.model} (SN: {device.serial_number}) with RFID tag {device.rfid_tag}")
 
     print("\nTest data creation completed!")
     print("Summary:")
     print(f"- Created hospital: {hospital.name}")
     print(f"- Created {len(locations)} locations: {', '.join(l['name'] for l in locations)}")
     print(f"- Created reader {reader_code} with 2 antennas")
-    print(f"- Created device: {device.model} with RFID tag {device.rfid_tag}")
+    print(f"- Created {len(devices)} devices with sequential RFID tags")
+    for device in devices:
+        print(f"  - {device['model']} with RFID tag {device['rfid_tag']}")
 
 if __name__ == "__main__":
     create_test_data() 

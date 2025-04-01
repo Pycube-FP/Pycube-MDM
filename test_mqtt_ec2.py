@@ -11,6 +11,7 @@ import pytz
 from services.db_service import DBService
 from models.rfid_alert import RFIDAlert
 import uuid
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Set up logging with debug level
 logging.basicConfig(
@@ -78,6 +79,37 @@ class MQTTClient(mqtt.Client):
         # Enable internal MQTT client debugging
         self.enable_logger(logger)
 
+    def check_for_missing_devices(self):
+        """Check for devices that have been temporarily out for too long and mark them as missing"""
+        try:
+            logger.info("Checking for devices that have been temporarily out for too long...")
+            with self.db_service.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    query = """
+                        SELECT id, updated_at
+                        FROM devices
+                        WHERE status = 'Temporarily Out'
+                    """
+                    cursor.execute(query)
+                    temp_out_devices = cursor.fetchall()
+                    
+                    current_time = get_current_est_time()
+                    for device in temp_out_devices:
+                        # Make sure the timestamp has timezone info
+                        last_update = device['updated_at']
+                        if not last_update.tzinfo:
+                            last_update = TIMEZONE.localize(last_update)
+                            
+                        time_since_update = current_time - last_update
+                        
+                        if time_since_update >= MISSING_THRESHOLD:
+                            self.update_device_status(device['id'], 'Missing')
+                            logger.info(f"Device {device['id']} has been out for {time_since_update.total_seconds()/60:.1f} minutes - marking as Missing")
+            
+            logger.info("Finished checking for missing devices")
+        except Exception as e:
+            logger.error(f"Error checking for missing devices: {e}")
+
     def check_and_update_status(self, device_id, current_status):
         """Check device status and update if needed based on time thresholds"""
         try:
@@ -108,10 +140,10 @@ class MQTTClient(mqtt.Client):
                         logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
                         return False
                     
-                    # If device is temporarily out and threshold exceeded, mark as missing
-                    if current_status == 'Temporarily Out' and time_since_update >= MISSING_THRESHOLD:
-                        self.update_device_status(device_id, 'Missing')
-                        logger.info(f"Device {device_id} has been out for {time_since_update.total_seconds()/60:.1f} minutes - marking as Missing")
+                    # If device is temporarily out or missing and read again, mark it as In-Facility
+                    if current_status == 'Temporarily Out' or current_status == 'Missing':
+                        self.update_device_status(device_id, 'In-Facility')
+                        logger.info(f"Device {device_id} has returned to facility - marking as In-Facility (previous status: {current_status})")
                         return True
                     
                     # If device is in facility, mark as temporarily out
@@ -218,8 +250,13 @@ class MQTTClient(mqtt.Client):
                     if device:
                         logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
                         
-                        # Check and update device status if needed
-                        self.check_and_update_status(device['id'], device['status'])
+                        # If device is in facility, mark as temporarily out immediately
+                        if device['status'] == 'In-Facility':
+                            self.update_device_status(device['id'], 'Temporarily Out')
+                            logger.info(f"Device {device['id']} marked as Temporarily Out")
+                        # For devices with other statuses, use the existing check method
+                        else:
+                            self.check_and_update_status(device['id'], device['status'])
                         
                         # Create RFID alert regardless of status change
                         try:
@@ -258,6 +295,48 @@ class MQTTClient(mqtt.Client):
         logger.warning(f"Disconnected with result code: {rc}")
         if rc != 0:
             logger.error("Unexpected disconnection. Will attempt to reconnect.")
+
+    def run(self):
+        """Start the MQTT client and connect to the broker"""
+        try:
+            # Connect to database and initialize tables if needed
+            self.initialize_database()
+            
+            # Try to connect
+            if self.connect():
+                logger.info("Connected to the MQTT broker")
+                
+                # Start the scheduler to check for missing devices periodically
+                logger.info("Starting scheduler for regular maintenance tasks")
+                self.scheduler = BackgroundScheduler(timezone=TIMEZONE)
+                self.scheduler.add_job(
+                    self.check_for_missing_devices, 
+                    'interval', 
+                    minutes=5,  # Check every 5 minutes
+                    id='check_missing_devices'
+                )
+                self.scheduler.start()
+                
+                # Keep the main thread running
+                while True:
+                    if not self.client.is_connected():
+                        logger.warning("Connection lost, attempting to reconnect...")
+                        self.connect()
+                    time.sleep(5)
+            else:
+                logger.error("Failed to connect to the MQTT broker")
+        except KeyboardInterrupt:
+            logger.info("Stopping MQTT client")
+            if hasattr(self, 'scheduler') and self.scheduler:
+                self.scheduler.shutdown()
+            if self.client.is_connected():
+                self.client.disconnect()
+        except Exception as e:
+            logger.error(f"Error running MQTT client: {e}")
+            if hasattr(self, 'scheduler') and self.scheduler:
+                self.scheduler.shutdown()
+            if self.client.is_connected():
+                self.client.disconnect()
 
 def main():
     # Verify certificates exist

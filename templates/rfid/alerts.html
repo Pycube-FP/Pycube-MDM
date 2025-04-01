@@ -157,6 +157,43 @@
         color: #dc3545;
         margin-right: 0.5rem;
     }
+
+    /* Status-specific styles */
+    .alert-row-in-facility {
+        background-color: rgba(40, 167, 69, 0.05);
+    }
+
+    .alert-row-temporarily-out {
+        background-color: rgba(255, 193, 7, 0.05);
+    }
+
+    .alert-row-missing {
+        background-color: rgba(220, 53, 69, 0.05);
+    }
+
+    .status-icon-in-facility {
+        color: #28a745;
+    }
+
+    .status-icon-temporarily-out {
+        color: #ffc107;
+    }
+
+    .status-icon-missing {
+        color: #dc3545;
+    }
+
+    .device-status-in-facility {
+        color: #28a745;
+    }
+
+    .device-status-temporarily-out {
+        color: #ffc107;
+    }
+
+    .device-status-missing {
+        color: #dc3545;
+    }
 </style>
 {% endblock %}
 
@@ -165,10 +202,10 @@
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--spacing-md);">
         <div>
             <h1>
-                <i class="fas fa-exclamation-triangle alert-warning-header"></i>
+                <i class="fas fa-broadcast-tower me-2"></i>
                 RFID Alerts
             </h1>
-            <p class="text-muted mb-0">Monitor missing device alerts from RFID checkpoints</p>
+            <p class="text-muted mb-0">Monitor device movements at RFID checkpoints</p>
         </div>
     </div>
 
@@ -190,37 +227,44 @@
         </form>
     </div>
 
-    {% call render_table(
-        headers=[
-            {'key': 'timestamp', 'label': 'Time', 'sortable': true},
-            {'key': 'device_name', 'label': 'Device', 'sortable': true},
-            {'key': 'location_name', 'label': 'Location', 'sortable': true}
-        ],
-        rows=alerts,
-        sort_by=sort_by,
-        sort_dir=sort_dir,
-        empty_message='No alerts found.'
-    ) %}
-        {% for alert in alerts %}
-        <tr class="missing-alert-row">
-            <td>
-                <span class="text-muted">{{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
-            </td>
-            <td>
-                <i class="fas fa-exclamation-circle missing-alert-icon"></i>
-                <a href="{{ url_for('devices.show', device_id=alert.device_id) }}" class="missing-device">
-                    {{ alert.device_name }} ({{ alert.serial_number }})
-                </a>
-            </td>
-            <td>{{ alert.location_name or 'Unknown Location' }}</td>
-            <td>
-                {{ render_actions([
-                    {'url': url_for('rfid.show_alert', alert_id=alert.id), 'class': 'btn-danger', 'icon': 'eye', 'title': 'View Alert Details'}
-                ]) }}
-            </td>
-        </tr>
-        {% endfor %}
-    {% endcall %}
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Device</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr class="alert-row-{{ alert.device_status|lower|replace(' ', '-') }}">
+                    <td>
+                        <span class="alert-time">{{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    </td>
+                    <td>
+                        <i class="fas fa-mobile-alt status-icon-{{ alert.device_status|lower|replace(' ', '-') }} me-2"></i>
+                        <a href="{{ url_for('devices.show', device_id=alert.device_id) }}" 
+                           class="device-link device-status-{{ alert.device_status|lower|replace(' ', '-') }}">
+                            {{ alert.device_name }} ({{ alert.serial_number }})
+                        </a>
+                    </td>
+                    <td class="alert-location">{{ alert.location_name or 'Unknown Location' }}</td>
+                    <td>
+                        {{ render_status_badge(alert.device_status) }}
+                    </td>
+                    <td>
+                        {{ render_actions([
+                            {'url': url_for('rfid.show_alert', alert_id=alert.id), 'class': 'btn-info', 'icon': 'eye', 'title': 'View Alert Details'}
+                        ]) }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
 
@@ -243,14 +287,10 @@
             const params = new URLSearchParams(formData);
             
             try {
-                const response = await fetch(`/rfid/alerts?${params.toString()}`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch alerts');
-                }
                 window.location.href = `/rfid/alerts?${params.toString()}`;
             } catch (error) {
                 console.error('Error:', error);
-                alert('Failed to fetch alerts. Please try again.');
+                alert('Failed to apply filters. Please try again.');
             }
         });
     });
