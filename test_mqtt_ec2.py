@@ -318,7 +318,7 @@ class MQTTClient(mqtt.Client):
                 self.scheduler.add_job(
                     self.check_for_missing_devices, 
                     'interval', 
-                    minutes=5,  # Check every 5 minutes
+                    minutes=2,  # Check every 5 minutes
                     id='check_missing_devices'
                 )
                 self.scheduler.start()
