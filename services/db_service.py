@@ -2062,9 +2062,9 @@ class DBService:
             # Create RFID alert
             alert_query = """
                 INSERT INTO rfid_alerts (
-                    id, device_id, hospital_id, location_id,
+                    id, device_id, hospital_id, reader_id, location_id,
                     status, previous_status, timestamp, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             # Get the values for the alert
@@ -2072,6 +2072,7 @@ class DBService:
                 rfid_alert.id,  # Use the ID from the RFIDAlert object
                 device['id'],
                 device['hospital_id'],
+                rfid_alert.reader_id,  # Include reader_id from the RFIDAlert
                 rfid_alert.location_id,
                 'Missing',  # Status is always "Missing" for this alert type
                 rfid_alert.previous_status,
@@ -2083,7 +2084,7 @@ class DBService:
             cursor.execute(alert_query, alert_values)
             connection.commit()
             
-            print(f"Created Missing alert for device {device['id']} (previous status: {rfid_alert.previous_status})")
+            print(f"Created Missing alert for device {device['id']} (previous status: {rfid_alert.previous_status}, reader_id: {rfid_alert.reader_id})")
             return rfid_alert.id
             
         except Exception as e:

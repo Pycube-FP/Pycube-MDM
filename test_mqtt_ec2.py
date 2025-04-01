@@ -249,10 +249,16 @@ class MQTTClient(mqtt.Client):
             logger.info("===== SCHEDULED TASK: CHECKING FOR MISSING DEVICES =====")
             with self.db_service.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
+                    # Query expanded to include the most recent reader_event for this device
                     query = """
-                        SELECT id, updated_at, serial_number, rfid_tag, location_id, status
-                        FROM devices
-                        WHERE status = 'Temporarily Out'
+                        SELECT d.id, d.updated_at, d.serial_number, d.rfid_tag, d.location_id, d.status,
+                               (SELECT re.reader_id 
+                                FROM reader_events re 
+                                WHERE re.device_id = d.id 
+                                ORDER BY re.timestamp DESC 
+                                LIMIT 1) as last_reader_id
+                        FROM devices d
+                        WHERE d.status = 'Temporarily Out'
                     """
                     cursor.execute(query)
                     temp_out_devices = cursor.fetchall()
@@ -306,11 +312,16 @@ class MQTTClient(mqtt.Client):
                                     # Fetch device location information
                                     location_id = device['location_id']
                                     
-                                    # Create an alert object
+                                    # Log the last reader information
+                                    last_reader_id = device.get('last_reader_id')
+                                    logger.info(f"  Last reader ID for this device: {last_reader_id}")
+                                    
+                                    # Create an alert object with reader information
                                     alert = RFIDAlert(
                                         device_id=device['id'],
                                         rfid_tag=device['rfid_tag'],
                                         location_id=location_id,
+                                        reader_id=last_reader_id,  # Include the reader_id from the latest reader_event
                                         timestamp=current_time_est,
                                         status='Missing',
                                         previous_status=previous_status
@@ -318,7 +329,7 @@ class MQTTClient(mqtt.Client):
                                     
                                     # Record the alert
                                     self.db_service.create_alert_for_missing_device(alert)
-                                    logger.info(f"  Created missing device alert for device {device['id']}")
+                                    logger.info(f"  Created missing device alert for device {device['id']} with reader ID {last_reader_id}")
                                 except Exception as e:
                                     logger.error(f"  Error creating alert for missing device: {e}")
                                 
