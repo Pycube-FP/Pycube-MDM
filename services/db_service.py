@@ -6,6 +6,7 @@ import json
 from dotenv import load_dotenv
 import uuid
 import pytz
+import logging
 
 # Import from configuration file
 try:
@@ -20,6 +21,8 @@ except ImportError:
 
 # Load environment variables from .env file
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 class DBService:
     """Service to handle database operations"""
@@ -2060,7 +2063,7 @@ class DBService:
                 alert_timestamp = TIMEZONE.localize(alert_timestamp)
             
             reader_id = None
-            # If reader_code and antenna_number are provided, look up reader_id
+            # Look up reader_id from reader_code and antenna_number
             if hasattr(rfid_alert, 'reader_code') and hasattr(rfid_alert, 'antenna_number'):
                 if rfid_alert.reader_code and rfid_alert.antenna_number:
                     reader_query = """
@@ -2071,16 +2074,19 @@ class DBService:
                     reader_result = cursor.fetchone()
                     if reader_result:
                         reader_id = reader_result['id']
+                        logger.info(f"Found reader_id: {reader_id} for code: {rfid_alert.reader_code}, antenna: {rfid_alert.antenna_number}")
+                    else:
+                        logger.warning(f"No reader found for code: {rfid_alert.reader_code}, antenna: {rfid_alert.antenna_number}")
             # Fallback to reader_id if it exists
             elif hasattr(rfid_alert, 'reader_id') and rfid_alert.reader_id:
                 reader_id = rfid_alert.reader_id
             
-            # Create RFID alert with reader_code and antenna_number
+            # Create RFID alert
             alert_query = """
                 INSERT INTO rfid_alerts (
-                    id, device_id, hospital_id, reader_id, reader_code, antenna_number, location_id,
+                    id, device_id, hospital_id, reader_id, location_id,
                     status, previous_status, timestamp, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
             # Get the values for the alert
@@ -2089,8 +2095,6 @@ class DBService:
                 device['id'],
                 device['hospital_id'],
                 reader_id,
-                getattr(rfid_alert, 'reader_code', None),
-                getattr(rfid_alert, 'antenna_number', None),
                 rfid_alert.location_id,
                 'Missing',  # Status is always "Missing" for this alert type
                 rfid_alert.previous_status,
@@ -2102,12 +2106,12 @@ class DBService:
             cursor.execute(alert_query, alert_values)
             connection.commit()
             
-            print(f"Created Missing alert for device {device['id']} (previous status: {rfid_alert.previous_status}, reader_code: {getattr(rfid_alert, 'reader_code', None)}, antenna: {getattr(rfid_alert, 'antenna_number', None)})")
+            logger.info(f"Created Missing alert for device {device['id']} (previous status: {rfid_alert.previous_status}, reader_id: {reader_id})")
             return rfid_alert.id
             
         except Exception as e:
             connection.rollback()
-            print(f"Error creating alert for missing device: {e}")
+            logger.error(f"Error creating alert for missing device: {e}")
             raise
         finally:
             cursor.close()
