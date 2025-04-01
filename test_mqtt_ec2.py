@@ -218,39 +218,32 @@ class MQTTClient(mqtt.Client):
                         logger.info("===== FINISHED CHECKING FOR MISSING DEVICES =====")
                         return
                     
-                    # Get current time in both UTC and EST for reliable comparison
-                    current_time_utc = datetime.now(pytz.UTC)
-                    current_time_est = current_time_utc.astimezone(TIMEZONE)
-                    logger.info(f"Current time (UTC): {current_time_utc}")
+                    # Get current time in EST for reliable comparison
+                    current_time_est = get_current_est_time()
                     logger.info(f"Current time (EST): {current_time_est}")
                     
                     marked_missing_count = 0
                     
                     for device in temp_out_devices:
-                        # Make sure the timestamp has timezone info and handle potential timezone issues
+                        # Make sure the timestamp has timezone info, assuming it's stored in EST
                         last_update = device['updated_at']
                         
                         logger.info(f"Raw last_update: {last_update} (TZ info: {last_update.tzinfo if hasattr(last_update, 'tzinfo') else 'None'})")
                         
-                        # We'll try multiple approaches to get a reliable time difference
-                        
-                        # Approach 1: Assume the database timestamp is in UTC
+                        # Add EST timezone info if it's missing
                         if not last_update.tzinfo:
-                            last_update_utc = pytz.UTC.localize(last_update)
+                            last_update_est = TIMEZONE.localize(last_update)
+                            logger.info(f"Adding EST timezone info: {last_update_est}")
                         else:
-                            last_update_utc = last_update.astimezone(pytz.UTC)
-                            
-                        # Convert to EST for display
-                        last_update_est = last_update_utc.astimezone(TIMEZONE)
+                            last_update_est = last_update
                         
                         # Calculate time difference in seconds and minutes
-                        time_diff_seconds = (current_time_utc - last_update_utc).total_seconds()
+                        time_diff_seconds = (current_time_est - last_update_est).total_seconds()
                         time_diff_minutes = time_diff_seconds / 60
                         
                         logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')})")
-                        logger.info(f"  Last update (UTC): {last_update_utc}")
-                        logger.info(f"  Last update (EST): {last_update_est}")
-                        logger.info(f"  Time out: {time_diff_minutes:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60:.1f} minutes)")
+                        logger.info(f"  Last update: {last_update_est}")
+                        logger.info(f"  Time difference: {time_diff_minutes:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60:.1f} minutes)")
                         
                         # Check if time difference is positive and exceeds the threshold
                         if time_diff_seconds > 0 and time_diff_seconds >= MISSING_THRESHOLD.total_seconds():
@@ -260,7 +253,7 @@ class MQTTClient(mqtt.Client):
                             marked_missing_count += 1
                         elif time_diff_seconds <= 0:
                             # Time difference is negative or zero (future or current timestamp)
-                            logger.warning(f"  WARNING: Device has a future or current timestamp - time diff: {time_diff_minutes:.1f} minutes")
+                            logger.warning(f"  WARNING: Device has a future timestamp - time diff: {time_diff_minutes:.1f} minutes")
                             logger.warning(f"  No status change applied due to suspicious timestamp")
                         else:
                             # Time difference is positive but below threshold

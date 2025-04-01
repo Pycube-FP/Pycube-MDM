@@ -1005,13 +1005,14 @@ class DBService:
                 WHERE id = %s
             """
             
-            # Use timezone-aware timestamp
-            current_time = datetime.now(TIMEZONE)
+            # Use timezone-aware EST timestamp
+            current_time_est = datetime.now(TIMEZONE)
             
-            values = (status, current_time, device_id)
+            values = (status, current_time_est, device_id)
             
             cursor.execute(query, values)
             connection.commit()
+            print(f"Updated device {device_id} status to {status} at {current_time_est}")
             return True
         except Exception as e:
             connection.rollback()
