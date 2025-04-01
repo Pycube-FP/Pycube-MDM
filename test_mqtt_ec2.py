@@ -44,7 +44,7 @@ ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 
 # Constants for status change thresholds
 STATUS_CHANGE_THRESHOLD = timedelta(minutes=0)  # No delay between status changes
-MISSING_THRESHOLD = timedelta(minutes=45)  # Time after which a temporarily out device is considered missing
+MISSING_THRESHOLD = timedelta(minutes=2)  # Time after which a temporarily out device is considered missing
 
 def get_current_est_time():
     """Get current time in Eastern Time"""
