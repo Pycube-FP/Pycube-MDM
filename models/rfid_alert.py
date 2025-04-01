@@ -7,7 +7,8 @@ class RFIDAlert:
     """
     def __init__(self, id=None, device_id=None, reader_id=None, hospital_id=None,
                  location_id=None, timestamp=None, created_at=None, updated_at=None,
-                 reader_code=None, antenna_number=None, rfid_tag=None):
+                 reader_code=None, antenna_number=None, rfid_tag=None, status=None,
+                 previous_status=None):
         self.id = id or str(uuid.uuid4())
         self.device_id = device_id
         self.reader_id = reader_id
@@ -19,6 +20,8 @@ class RFIDAlert:
         self.reader_code = reader_code
         self.antenna_number = antenna_number
         self.rfid_tag = rfid_tag
+        self.status = status
+        self.previous_status = previous_status
     
     @classmethod
     def from_dict(cls, data):
@@ -34,7 +37,9 @@ class RFIDAlert:
             updated_at=data.get('updated_at'),
             reader_code=data.get('reader_code'),
             antenna_number=data.get('antenna_number'),
-            rfid_tag=data.get('rfid_tag')
+            rfid_tag=data.get('rfid_tag'),
+            status=data.get('status'),
+            previous_status=data.get('previous_status')
         )
     
     def to_dict(self):
@@ -50,7 +55,9 @@ class RFIDAlert:
             'updated_at': self.updated_at,
             'reader_code': self.reader_code,
             'antenna_number': self.antenna_number,
-            'rfid_tag': self.rfid_tag
+            'rfid_tag': self.rfid_tag,
+            'status': self.status,
+            'previous_status': self.previous_status
         }
     
     def __str__(self):

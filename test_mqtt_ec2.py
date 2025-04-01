@@ -250,13 +250,19 @@ class MQTTClient(mqtt.Client):
                     if device:
                         logger.info(f"Found device for RFID tag {rfid_tag}: {device['model']} ({device['serial_number']})")
                         
+                        # Store previous status for alert
+                        previous_status = device['status']
+                        current_status = previous_status  # Default if no change
+                        
                         # If device is in facility, mark as temporarily out immediately
                         if device['status'] == 'In-Facility':
                             self.update_device_status(device['id'], 'Temporarily Out')
+                            current_status = 'Temporarily Out'
                             logger.info(f"Device {device['id']} marked as Temporarily Out")
                         # If device is temporarily out or missing, mark as in-facility immediately
                         elif device['status'] == 'Temporarily Out' or device['status'] == 'Missing':
                             self.update_device_status(device['id'], 'In-Facility')
+                            current_status = 'In-Facility'
                             logger.info(f"Device {device['id']} marked as In-Facility (was: {device['status']})")
                         
                         # Create RFID alert regardless of status change
@@ -268,6 +274,10 @@ class MQTTClient(mqtt.Client):
                                 rfid_tag=rfid_tag,
                                 timestamp=get_current_est_time()
                             )
+                            
+                            # Add status information to the alert
+                            alert.status = current_status
+                            alert.previous_status = previous_status
                             
                             # Record the movement (this will create both reader_event and rfid_alert)
                             self.db_service.record_movement(alert)

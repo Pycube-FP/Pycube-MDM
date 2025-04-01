@@ -215,6 +215,7 @@ class DBService:
                     hospital_id VARCHAR(36),
                     location_id VARCHAR(36),
                     status VARCHAR(50) DEFAULT 'Temporarily Out',
+                    previous_status VARCHAR(50) DEFAULT NULL,
                     timestamp DATETIME,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -585,15 +586,21 @@ class DBService:
             alert_query = """
                 INSERT INTO rfid_alerts (
                     id, device_id, reader_id, hospital_id, location_id,
-                    status, timestamp, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    status, previous_status, timestamp, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
             
-            # Get current device status to use for the alert status
-            status_query = "SELECT status FROM devices WHERE id = %s"
-            cursor.execute(status_query, (device['id'],))
-            device_status_row = cursor.fetchone()
-            device_status = device_status_row['status'] if device_status_row else 'Temporarily Out'
+            # Use the status from the alert object if available, otherwise get it from the database
+            device_status = getattr(rfid_alert, 'status', None)
+            if device_status is None:
+                # Fall back to getting status from the database
+                status_query = "SELECT status FROM devices WHERE id = %s"
+                cursor.execute(status_query, (device['id'],))
+                device_status_row = cursor.fetchone()
+                device_status = device_status_row['status'] if device_status_row else 'Temporarily Out'
+            
+            # Get previous status from alert object
+            previous_status = getattr(rfid_alert, 'previous_status', None)
             
             alert_values = (
                 rfid_alert.id,  # Use the ID from the RFIDAlert object
@@ -602,6 +609,7 @@ class DBService:
                 reader['hospital_id'],
                 reader['location_id'],
                 device_status,
+                previous_status,
                 rfid_alert.timestamp,
                 datetime.now(),
                 datetime.now()
