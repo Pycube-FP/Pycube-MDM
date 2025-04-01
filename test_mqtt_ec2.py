@@ -150,6 +150,49 @@ class MQTTClient(mqtt.Client):
                     with conn.cursor() as cursor:
                         cursor.execute("SELECT 1")
                 logger.info("Database connection successful")
+                
+            # Check database server timezone settings
+            with self.db_service.get_connection() as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT @@global.time_zone, @@session.time_zone")
+                    global_tz, session_tz = cursor.fetchone()
+                    logger.info(f"Database timezone settings - Global: {global_tz}, Session: {session_tz}")
+                    
+                    # Compare database and system time
+                    cursor.execute("SELECT NOW(), UTC_TIMESTAMP()")
+                    db_now, db_utc = cursor.fetchone()
+                    
+                    logger.info(f"Database NOW(): {db_now} (TZ info: {db_now.tzinfo if hasattr(db_now, 'tzinfo') else 'None'})")
+                    logger.info(f"Database UTC_TIMESTAMP(): {db_utc} (TZ info: {db_utc.tzinfo if hasattr(db_utc, 'tzinfo') else 'None'})")
+                    
+                    # Get system times
+                    system_now = datetime.now()
+                    system_utc = datetime.now(pytz.UTC)
+                    system_est = get_current_est_time()
+                    
+                    logger.info(f"System local time: {system_now}")
+                    logger.info(f"System UTC time: {system_utc}")
+                    logger.info(f"System EST time: {system_est}")
+                    
+                    # Check if database has any Temporarily Out devices
+                    cursor.execute("SELECT COUNT(*) FROM devices WHERE status = 'Temporarily Out'")
+                    temp_out_count = cursor.fetchone()[0]
+                    logger.info(f"Found {temp_out_count} devices with 'Temporarily Out' status in database")
+                    
+                    if temp_out_count > 0:
+                        # Check one device as example
+                        cursor.execute("SELECT id, serial_number, status, updated_at FROM devices WHERE status = 'Temporarily Out' LIMIT 1")
+                        device = cursor.fetchone()
+                        if device:
+                            device_id, serial, status, updated_at = device
+                            logger.info(f"Example device - ID: {device_id}, Serial: {serial}, Status: {status}")
+                            logger.info(f"Updated at: {updated_at} (TZ info: {updated_at.tzinfo if hasattr(updated_at, 'tzinfo') else 'None'})")
+                            
+                            # Check time difference assuming UTC
+                            if not updated_at.tzinfo:
+                                updated_at_utc = pytz.UTC.localize(updated_at)
+                                time_diff = (system_utc - updated_at_utc).total_seconds() / 60
+                                logger.info(f"Time since update: {time_diff:.1f} minutes (assuming UTC)")
         except Exception as e:
             logger.error(f"Error initializing database: {e}")
             raise
@@ -175,26 +218,53 @@ class MQTTClient(mqtt.Client):
                         logger.info("===== FINISHED CHECKING FOR MISSING DEVICES =====")
                         return
                     
-                    current_time = get_current_est_time()
+                    # Get current time in both UTC and EST for reliable comparison
+                    current_time_utc = datetime.now(pytz.UTC)
+                    current_time_est = current_time_utc.astimezone(TIMEZONE)
+                    logger.info(f"Current time (UTC): {current_time_utc}")
+                    logger.info(f"Current time (EST): {current_time_est}")
+                    
                     marked_missing_count = 0
                     
                     for device in temp_out_devices:
-                        # Make sure the timestamp has timezone info
+                        # Make sure the timestamp has timezone info and handle potential timezone issues
                         last_update = device['updated_at']
+                        
+                        logger.info(f"Raw last_update: {last_update} (TZ info: {last_update.tzinfo if hasattr(last_update, 'tzinfo') else 'None'})")
+                        
+                        # We'll try multiple approaches to get a reliable time difference
+                        
+                        # Approach 1: Assume the database timestamp is in UTC
                         if not last_update.tzinfo:
-                            last_update = TIMEZONE.localize(last_update)
-                            
-                        time_since_update = current_time - last_update
-                        time_minutes = time_since_update.total_seconds() / 60
-                        
-                        logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')}) has been out for {time_minutes:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60} minutes)")
-                        
-                        if time_since_update >= MISSING_THRESHOLD:
-                            result = self.db_service.update_device_status(device['id'], 'Missing')
-                            logger.info(f"Device {device['id']} has been out for {time_minutes:.1f} minutes - marking as Missing - success: {result}")
-                            marked_missing_count += 1
+                            last_update_utc = pytz.UTC.localize(last_update)
                         else:
-                            logger.info(f"Device {device['id']} has not exceeded the threshold ({time_minutes:.1f} < {MISSING_THRESHOLD.total_seconds()/60} minutes) - no status change")
+                            last_update_utc = last_update.astimezone(pytz.UTC)
+                            
+                        # Convert to EST for display
+                        last_update_est = last_update_utc.astimezone(TIMEZONE)
+                        
+                        # Calculate time difference in seconds and minutes
+                        time_diff_seconds = (current_time_utc - last_update_utc).total_seconds()
+                        time_diff_minutes = time_diff_seconds / 60
+                        
+                        logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')})")
+                        logger.info(f"  Last update (UTC): {last_update_utc}")
+                        logger.info(f"  Last update (EST): {last_update_est}")
+                        logger.info(f"  Time out: {time_diff_minutes:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60:.1f} minutes)")
+                        
+                        # Check if time difference is positive and exceeds the threshold
+                        if time_diff_seconds > 0 and time_diff_seconds >= MISSING_THRESHOLD.total_seconds():
+                            # Mark as missing
+                            result = self.db_service.update_device_status(device['id'], 'Missing')
+                            logger.info(f"  ACTION: Marking as Missing - success: {result}")
+                            marked_missing_count += 1
+                        elif time_diff_seconds <= 0:
+                            # Time difference is negative or zero (future or current timestamp)
+                            logger.warning(f"  WARNING: Device has a future or current timestamp - time diff: {time_diff_minutes:.1f} minutes")
+                            logger.warning(f"  No status change applied due to suspicious timestamp")
+                        else:
+                            # Time difference is positive but below threshold
+                            logger.info(f"  Not yet eligible for Missing status - time diff {time_diff_minutes:.1f} min < threshold {MISSING_THRESHOLD.total_seconds()/60:.1f} min")
                     
                     logger.info(f"Marked {marked_missing_count} of {len(temp_out_devices)} devices as Missing based on time threshold")
             
