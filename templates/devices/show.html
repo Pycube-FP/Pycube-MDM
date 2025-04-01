@@ -233,13 +233,13 @@
                                     <img src="{{ url_for('static', filename='img/iphone15.png') }}"
                                          alt="iPhone 15"
                                          style="width: auto; height: 100%; object-fit: contain; transform: scale(0.95);"
-                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
                                     />
                                 {% elif 'iphone 14' in device.model|lower %}
                                     <img src="{{ url_for('static', filename='img/iphone14.png') }}"
                                          alt="iPhone 14"
                                          style="width: auto; height: 100%; object-fit: contain; transform: scale(0.95);"
-                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
                                     />
                                 {% else %}
                                     <i class="fas fa-mobile-alt" style="font-size: 6rem; color: var(--gray-400);"></i>
@@ -440,14 +440,23 @@
                         <small class="text-muted d-block">Antenna {{ movement.antenna_number }}</small>
                     </td>
                     <td>
-                        <span class="badge {% if movement.event_status == 'Missing' %}bg-danger
-                                     {% elif movement.event_status == 'In-Facility' %}bg-success
+                        {% if movement.status_transition %}
+                            <span class="badge {% if 'Missing' in movement.status_transition %}bg-danger
+                                     {% elif 'In-Facility' in movement.status_transition and '→' not in movement.status_transition %}bg-success
+                                     {% elif 'In-Facility → Temporarily Out' in movement.status_transition %}bg-warning
+                                     {% elif 'Temporarily Out → In-Facility' in movement.status_transition %}bg-success
+                                     {% elif 'Temporarily Out → Missing' in movement.status_transition %}bg-danger
+                                     {% elif 'Missing → In-Facility' in movement.status_transition %}bg-success
                                      {% else %}bg-warning{% endif %}">
-                            <i class="fas {% if movement.event_status == 'Missing' %}fa-exclamation-triangle
-                                    {% elif movement.event_status == 'In-Facility' %}fa-sign-in-alt
-                                    {% else %}fa-sign-out-alt{% endif %} me-1"></i> 
-                            {{ movement.status_transition }}
-                        </span>
+                                <i class="fas {% if 'Missing' in movement.status_transition and '→ Missing' in movement.status_transition %}fa-exclamation-triangle
+                                    {% elif 'In-Facility → ' in movement.status_transition %}fa-sign-out-alt
+                                    {% elif '→ In-Facility' in movement.status_transition %}fa-sign-in-alt
+                                    {% else %}fa-exchange-alt{% endif %} me-1"></i> 
+                                {{ movement.status_transition }}
+                            </span>
+                        {% else %}
+                            <span class="badge bg-secondary">Unknown</span>
+                        {% endif %}
                     </td>
                     <td class="text-center">
                         <a href="{{ url_for('rfid.alerts') }}?device_id={{ movement.device_id }}" 
