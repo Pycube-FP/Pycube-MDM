@@ -240,20 +240,20 @@
             </thead>
             <tbody>
                 {% for alert in alerts %}
-                <tr class="alert-row-{{ alert.device_status|lower|replace(' ', '-') }}">
+                <tr class="alert-row-{{ alert.alert_status|lower|replace(' ', '-') }}">
                     <td>
                         <span class="alert-time">{{ alert.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
                     </td>
                     <td>
-                        <i class="fas fa-mobile-alt status-icon-{{ alert.device_status|lower|replace(' ', '-') }} me-2"></i>
+                        <i class="fas fa-mobile-alt status-icon-{{ alert.alert_status|lower|replace(' ', '-') }} me-2"></i>
                         <a href="{{ url_for('devices.show', device_id=alert.device_id) }}" 
-                           class="device-link device-status-{{ alert.device_status|lower|replace(' ', '-') }}">
+                           class="device-link device-status-{{ alert.alert_status|lower|replace(' ', '-') }}">
                             {{ alert.device_name }} ({{ alert.serial_number }})
                         </a>
                     </td>
                     <td class="alert-location">{{ alert.location_name or 'Unknown Location' }}</td>
                     <td>
-                        {{ render_status_badge(alert.device_status) }}
+                        {{ render_status_badge(alert.alert_status) }}
                     </td>
                     <td>
                         {{ render_actions([

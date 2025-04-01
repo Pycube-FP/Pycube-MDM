@@ -73,12 +73,12 @@
                 <h1 class="h3 mb-2">Device Movement Alert</h1>
                 <div class="d-flex mb-2">
                     <div class="me-3">
-                        <small class="text-muted">Device Status:</small>
+                        <small class="text-muted">Current Device Status:</small>
                         {{ render_status_badge(alert.device_status or 'Unknown') }}
                     </div>
                     <div>
-                        <small class="text-muted">Alert Status:</small>
-                        <span class="badge bg-secondary">{{ alert.status or 'Temporarily Out' }}</span>
+                        <small class="text-muted">Status at Time of Alert:</small>
+                        {{ render_status_badge(alert.status or 'Temporarily Out') }}
                     </div>
                 </div>
                 <div class="alert-timestamp">
@@ -106,17 +106,25 @@
                     <div class="detail-value">{{ alert.serial_number }}</div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Status</div>
+                    <div class="detail-label">Current Status</div>
                     <div class="detail-value status-{{ alert.device_status|lower|replace(' ', '-') }}">
                         {{ alert.device_status or 'Unknown' }}
                     </div>
                 </div>
                 <div class="detail-item">
-                    <div class="detail-label">Alert Status</div>
-                    <div class="detail-value">
+                    <div class="detail-label">Status at Time of Alert</div>
+                    <div class="detail-value status-{{ alert.status|lower|replace(' ', '-') }}">
                         {{ alert.status or 'Temporarily Out' }}
                     </div>
                 </div>
+                {% if alert.previous_status %}
+                <div class="detail-item">
+                    <div class="detail-label">Previous Status</div>
+                    <div class="detail-value status-{{ alert.previous_status|lower|replace(' ', '-') }}">
+                        {{ alert.previous_status }}
+                    </div>
+                </div>
+                {% endif %}
                 <div class="detail-item">
                     <div class="detail-label">RFID Tag</div>
                     <div class="detail-value">{{ alert.rfid_tag or alert.asset_tag or 'N/A' }}</div>
