@@ -13,10 +13,82 @@ from models.rfid_alert import RFIDAlert
 import uuid
 from apscheduler.schedulers.background import BackgroundScheduler
 
+# Import configuration
+try:
+    from pycube_mdm.config.app_config import (
+        MISSING_THRESHOLD, 
+        TIMEZONE, 
+        MQTT_ENDPOINT, 
+        MQTT_TOPIC, 
+        MQTT_PORT, 
+        MQTT_KEEP_ALIVE,
+        CERTS_DIR,
+        PRIVATE_KEY,
+        CERTIFICATE,
+        ROOT_CA,
+        SCHEDULER_CHECK_MISSING_INTERVAL,
+        SCHEDULER_LOG_STATUS_INTERVAL,
+        get_current_est_time
+    )
+except ImportError:
+    # Try relative import for when running within the package
+    try:
+        from config.app_config import (
+            MISSING_THRESHOLD, 
+            TIMEZONE, 
+            MQTT_ENDPOINT, 
+            MQTT_TOPIC, 
+            MQTT_PORT, 
+            MQTT_KEEP_ALIVE,
+            CERTS_DIR,
+            PRIVATE_KEY,
+            CERTIFICATE,
+            ROOT_CA,
+            SCHEDULER_CHECK_MISSING_INTERVAL,
+            SCHEDULER_LOG_STATUS_INTERVAL,
+            get_current_est_time
+        )
+    except ImportError:
+        # We'll define fallback constants here in case the config module is not available
+        import pytz
+        from datetime import timedelta, datetime
+        
+        # Timezone configuration
+        TIMEZONE = pytz.timezone('America/New_York')
+        
+        # Define time threshold constants
+        MISSING_THRESHOLD = timedelta(minutes=2)  # Time after which a temporarily out device is considered missing
+        
+        # MQTT configuration
+        MQTT_ENDPOINT = "a2zl2pb12jbe1o-ats.iot.us-east-1.amazonaws.com"
+        MQTT_TOPIC = "6B6035_tagdata"
+        MQTT_PORT = 8883
+        MQTT_KEEP_ALIVE = 60
+        
+        # Certificate paths for EC2
+        CERTS_DIR = os.path.expanduser("~/certs")
+        PRIVATE_KEY = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-private.pem.key")
+        CERTIFICATE = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-certificate.pem.crt")
+        ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
+        
+        # Scheduler Configuration
+        SCHEDULER_CHECK_MISSING_INTERVAL = 2  # minutes
+        SCHEDULER_LOG_STATUS_INTERVAL = 30  # seconds
+        
+        def get_current_est_time():
+            """Get current time in Eastern Time"""
+            # Create a timezone-aware UTC time 
+            utc_now = datetime.now(pytz.UTC)
+            
+            # Convert to EST
+            est_now = utc_now.astimezone(TIMEZONE)
+            
+            return est_now
+
 # Set up logging with debug level
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(module)s - %(message)s',
     handlers=[
         logging.StreamHandler()  # Only console output
     ]
@@ -27,34 +99,8 @@ logger = logging.getLogger(__name__)
 logger_paho = logging.getLogger('paho.mqtt')
 logger_paho.setLevel(logging.DEBUG)
 
-# MQTT configuration
-MQTT_ENDPOINT = "a2zl2pb12jbe1o-ats.iot.us-east-1.amazonaws.com"
-MQTT_TOPIC = "6B6035_tagdata"
-MQTT_PORT = 8883
-KEEP_ALIVE = 60
-
-# Timezone configuration
-TIMEZONE = pytz.timezone('America/New_York')
-
-# Certificate paths for EC2
-CERTS_DIR = os.path.expanduser("~/certs")
-PRIVATE_KEY = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-private.pem.key")
-CERTIFICATE = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a55c9cc806b4d73b1ab4cb15-certificate.pem.crt")
-ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
-
 # Constants for status change thresholds
 STATUS_CHANGE_THRESHOLD = timedelta(minutes=0)  # No delay between status changes
-MISSING_THRESHOLD = timedelta(minutes=2)  # Time after which a temporarily out device is considered missing
-
-def get_current_est_time():
-    """Get current time in Eastern Time"""
-    # Create a timezone-aware UTC time 
-    utc_now = datetime.now(pytz.UTC)
-    
-    # Convert to EST
-    est_now = utc_now.astimezone(TIMEZONE)
-    
-    return est_now
 
 def verify_certificates():
     """Verify all certificate files exist and are readable"""
@@ -102,7 +148,7 @@ class MQTTClient(mqtt.Client):
             self.scheduler.add_job(
                 self.check_for_missing_devices, 
                 'interval', 
-                minutes=2,  # Check every 2 minutes
+                minutes=SCHEDULER_CHECK_MISSING_INTERVAL,  # Check based on config
                 id='check_missing_devices',
                 next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=15)  # Run 15 seconds after startup
             )
@@ -111,7 +157,7 @@ class MQTTClient(mqtt.Client):
             self.scheduler.add_job(
                 self._log_scheduler_status,
                 'interval',
-                seconds=30,  # Log scheduler status every 30 seconds
+                seconds=SCHEDULER_LOG_STATUS_INTERVAL,  # Log status based on config
                 id='log_scheduler_status',
                 next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=5)  # Start after 5 seconds
             )
@@ -120,7 +166,7 @@ class MQTTClient(mqtt.Client):
             logger.info("Starting scheduler")
             self.scheduler.start()
             logger.info(f"Scheduler started with {len(self.scheduler.get_jobs())} jobs")
-            logger.info("Will check for missing devices every 2 minutes")
+            logger.info(f"Will check for missing devices every {SCHEDULER_CHECK_MISSING_INTERVAL} minutes")
 
     def _log_scheduler_status(self):
         """Log scheduler status for diagnostics"""
@@ -570,7 +616,7 @@ def main():
     
     try:
         logger.info(f"Connecting to {MQTT_ENDPOINT}...")
-        client.connect(MQTT_ENDPOINT, MQTT_PORT, KEEP_ALIVE)
+        client.connect(MQTT_ENDPOINT, MQTT_PORT, MQTT_KEEP_ALIVE)
         
         # Start the loop
         client.loop_forever()

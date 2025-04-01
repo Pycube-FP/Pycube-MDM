@@ -7,14 +7,19 @@ from dotenv import load_dotenv
 import uuid
 import pytz
 
+# Import from configuration file
+try:
+    from pycube_mdm.config.app_config import MISSING_THRESHOLD, TIMEZONE, get_current_est_time
+except ImportError:
+    # Try relative import for when running within the package
+    try:
+        from ..config.app_config import MISSING_THRESHOLD, TIMEZONE, get_current_est_time
+    except ImportError:
+        # Fallback for direct script execution
+        from config.app_config import MISSING_THRESHOLD, TIMEZONE, get_current_est_time
+
 # Load environment variables from .env file
 load_dotenv()
-
-# Configure timezone
-TIMEZONE = pytz.timezone('America/New_York')
-
-# Define time threshold constants
-MISSING_THRESHOLD = timedelta(minutes=45)  # Time after which a temporarily out device is considered missing
 
 class DBService:
     """Service to handle database operations"""
