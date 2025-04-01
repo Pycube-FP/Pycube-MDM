@@ -421,7 +421,7 @@
                     <th scope="col">Time</th>
                     <th scope="col">Location</th>
                     <th scope="col">Reader</th>
-                    <th scope="col">Status</th>
+                    <th scope="col">Status Change</th>
                     <th scope="col" class="text-center">Actions</th>
                 </tr>
             </thead>
@@ -436,8 +436,15 @@
                         <span class="d-block">{{ movement.location_name or 'Unknown Location' }}</span>
                     </td>
                     <td>
-                        {{ movement.reader_name or movement.reader_code }}
-                        <small class="text-muted d-block">Antenna {{ movement.antenna_number }}</small>
+                        {% if movement.reader_name == 'System Alert' %}
+                            <span class="text-muted">{{ movement.reader_name }}</span>
+                            <small class="text-muted d-block">Automatic Status Update</small>
+                        {% else %}
+                            {{ movement.reader_name or movement.reader_code }}
+                            {% if movement.antenna_number %}
+                                <small class="text-muted d-block">Antenna {{ movement.antenna_number }}</small>
+                            {% endif %}
+                        {% endif %}
                     </td>
                     <td>
                         {% if movement.status_transition %}
@@ -455,7 +462,7 @@
                                 {{ movement.status_transition }}
                             </span>
                         {% else %}
-                            <span class="badge bg-secondary">Unknown</span>
+                            <span class="badge bg-secondary">Unknown → {{ movement.current_status }}</span>
                         {% endif %}
                     </td>
                     <td class="text-center">

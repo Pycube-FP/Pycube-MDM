@@ -2115,4 +2115,61 @@ class DBService:
             raise
         finally:
             cursor.close()
+            connection.close()
+
+    def get_device_movement_history(self, device_id, limit=50):
+        """Get device movement history from rfid_alerts which includes status transitions"""
+        connection = self.get_connection()
+        cursor = connection.cursor(dictionary=True)
+        
+        try:
+            # Query to get movement history with status transitions from rfid_alerts table
+            query = """
+                SELECT 
+                    a.id,
+                    a.timestamp,
+                    a.device_id,
+                    a.location_id,
+                    a.status as current_status,
+                    a.previous_status,
+                    l.name as location_name,
+                    r.name as reader_name,
+                    r.reader_code,
+                    r.antenna_number,
+                    CASE
+                        WHEN a.previous_status = 'In-Facility' AND a.status = 'Temporarily Out' THEN 'In-Facility → Temporarily Out'
+                        WHEN a.previous_status = 'Temporarily Out' AND a.status = 'In-Facility' THEN 'Temporarily Out → In-Facility'
+                        WHEN a.previous_status = 'Temporarily Out' AND a.status = 'Missing' THEN 'Temporarily Out → Missing'
+                        WHEN a.previous_status = 'Missing' AND a.status = 'In-Facility' THEN 'Missing → In-Facility'
+                        ELSE CONCAT(IFNULL(a.previous_status, 'Unknown'), ' → ', a.status)
+                    END as status_transition
+                FROM rfid_alerts a
+                LEFT JOIN locations l ON a.location_id = l.id
+                LEFT JOIN readers r ON a.reader_id = r.id
+                WHERE a.device_id = %s
+                ORDER BY a.timestamp DESC
+                LIMIT %s
+            """
+            cursor.execute(query, (device_id, limit))
+            alerts = cursor.fetchall()
+            
+            # Process each alert to create a consistent format with current get_device_movements
+            for alert in alerts:
+                # Set event_status for consistency with the old method
+                alert['event_status'] = alert['current_status']
+                
+                # Enhanced logging for missing alerts when there's no reader info
+                if alert['current_status'] == 'Missing' and not alert['reader_name'] and not alert['reader_code']:
+                    alert['reader_name'] = 'System Alert'
+                    alert['reader_code'] = 'Automatic Detection'
+                    alert['antenna_number'] = None
+            
+            logger.info(f"Retrieved {len(alerts)} movement records from rfid_alerts table for device {device_id}")
+            return alerts
+            
+        except Exception as e:
+            logger.error(f"Error retrieving device movement history: {e}", exc_info=True)
+            return []
+        finally:
+            cursor.close()
             connection.close() 

@@ -135,7 +135,7 @@ def create():
 @devices_bp.route('/<device_id>')
 @login_required
 def show(device_id):
-    """Show device details"""
+    """Display device details"""
     db_service = DBService()
     device_data = db_service.get_device(device_id)
     
@@ -143,8 +143,8 @@ def show(device_id):
         flash('Device not found', 'error')
         return redirect(url_for('devices.index'))
     
-    # Get movement history
-    movements = db_service.get_device_movements(device_id)
+    # Get movement history from rfid_alerts table (shows status transitions)
+    movements = db_service.get_device_movement_history(device_id)
     
     # Get assignment history
     assignments = db_service.get_device_assignments(device_id)
