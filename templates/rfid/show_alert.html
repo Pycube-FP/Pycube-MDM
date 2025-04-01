@@ -54,32 +54,38 @@
     .status-in-facility {
         color: #28a745 !important;
         font-weight: bold;
+        background-color: transparent !important;
     }
 
     .status-temporarily-out {
         color: #ffc107 !important;
         font-weight: bold;
+        background-color: transparent !important;
     }
 
     .status-missing {
         color: #dc3545 !important;
         font-weight: bold;
+        background-color: transparent !important;
     }
     
     /* Support for both hyphenated and non-hyphenated status names */
     .status-In-Facility {
         color: #28a745 !important;
         font-weight: bold;
+        background-color: transparent !important;
     }
 
     .status-Temporarily-Out {
         color: #ffc107 !important;
         font-weight: bold;
+        background-color: transparent !important;
     }
 
     .status-Missing {
         color: #dc3545 !important;
         font-weight: bold;
+        background-color: transparent !important;
     }
 </style>
 {% endblock %}
@@ -126,21 +132,27 @@
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Current Status</div>
-                    <div class="detail-value status-{{ alert.device_status|lower|replace(' ', '-') }} status-{{ alert.device_status|replace(' ', '-') }}">
-                        {{ alert.device_status or 'Unknown' }}
+                    <div class="detail-value">
+                        <span class="status-{{ alert.device_status|lower|replace(' ', '-') }} status-{{ alert.device_status|replace(' ', '-') }}">
+                            {{ alert.device_status or 'Unknown' }}
+                        </span>
                     </div>
                 </div>
                 <div class="detail-item">
                     <div class="detail-label">Status at Time of Alert</div>
-                    <div class="detail-value status-{{ alert.status|lower|replace(' ', '-') }} status-{{ alert.status|replace(' ', '-') }}">
-                        {{ alert.status or 'Temporarily Out' }}
+                    <div class="detail-value">
+                        <span class="status-{{ alert.status|lower|replace(' ', '-') }} status-{{ alert.status|replace(' ', '-') }}">
+                            {{ alert.status or 'Temporarily Out' }}
+                        </span>
                     </div>
                 </div>
                 {% if alert.previous_status %}
                 <div class="detail-item">
                     <div class="detail-label">Previous Status</div>
-                    <div class="detail-value status-{{ alert.previous_status|lower|replace(' ', '-') }} status-{{ alert.previous_status|replace(' ', '-') }}">
-                        {{ alert.previous_status }}
+                    <div class="detail-value">
+                        <span class="status-{{ alert.previous_status|lower|replace(' ', '-') }} status-{{ alert.previous_status|replace(' ', '-') }}">
+                            {{ alert.previous_status }}
+                        </span>
                     </div>
                 </div>
                 {% endif %}
