@@ -103,8 +103,8 @@ class MQTTClient(mqtt.Client):
                         time_since_update = current_time - last_update
                         
                         if time_since_update >= MISSING_THRESHOLD:
-                            self.update_device_status(device['id'], 'Missing')
-                            logger.info(f"Device {device['id']} has been out for {time_since_update.total_seconds()/60:.1f} minutes - marking as Missing")
+                            result = self.db_service.update_device_status(device['id'], 'Missing')
+                            logger.info(f"Device {device['id']} has been out for {time_since_update.total_seconds()/60:.1f} minutes - marking as Missing - success: {result}")
             
             logger.info("Finished checking for missing devices")
         except Exception as e:
@@ -115,9 +115,9 @@ class MQTTClient(mqtt.Client):
         try:
             with self.db_service.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
-                    # Get the last update time for this device
+                    # Get the current status for this device
                     query = """
-                        SELECT updated_at 
+                        SELECT status 
                         FROM devices 
                         WHERE id = %s
                     """
@@ -126,30 +126,17 @@ class MQTTClient(mqtt.Client):
                     
                     if not result:
                         return False
-                        
-                    last_update = result['updated_at']
-                    # Make sure the timestamp has timezone info
-                    if not last_update.tzinfo:
-                        last_update = TIMEZONE.localize(last_update)
-                        
-                    current_time = get_current_est_time()
-                    time_since_update = current_time - last_update
-                    
-                    # Removing the status change cooldown - process all status changes immediately
-                    # if time_since_update < STATUS_CHANGE_THRESHOLD:
-                    #     logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
-                    #     return False
                     
                     # If device is temporarily out or missing and read again, mark it as In-Facility
                     if current_status == 'Temporarily Out' or current_status == 'Missing':
-                        self.update_device_status(device_id, 'In-Facility')
-                        logger.info(f"Device {device_id} has returned to facility - marking as In-Facility (previous status: {current_status})")
+                        result = self.db_service.update_device_status(device_id, 'In-Facility')
+                        logger.info(f"Device {device_id} has returned to facility - marking as In-Facility (previous status: {current_status}) - success: {result}")
                         return True
                     
                     # If device is in facility, mark as temporarily out
                     if current_status == 'In-Facility':
-                        self.update_device_status(device_id, 'Temporarily Out')
-                        logger.info(f"Device {device_id} marked as Temporarily Out")
+                        result = self.db_service.update_device_status(device_id, 'Temporarily Out')
+                        logger.info(f"Device {device_id} marked as Temporarily Out - success: {result}")
                         return True
                     
                     return False
@@ -252,18 +239,22 @@ class MQTTClient(mqtt.Client):
                         
                         # Store previous status for alert
                         previous_status = device['status']
-                        current_status = previous_status  # Default if no change
+                        current_status = None  # Will be set based on the transition
                         
                         # If device is in facility, mark as temporarily out immediately
                         if device['status'] == 'In-Facility':
-                            self.update_device_status(device['id'], 'Temporarily Out')
+                            result = self.db_service.update_device_status(device['id'], 'Temporarily Out')
                             current_status = 'Temporarily Out'
-                            logger.info(f"Device {device['id']} marked as Temporarily Out")
+                            logger.info(f"Device {device['id']} marked as Temporarily Out - success: {result}")
                         # If device is temporarily out or missing, mark as in-facility immediately
                         elif device['status'] == 'Temporarily Out' or device['status'] == 'Missing':
-                            self.update_device_status(device['id'], 'In-Facility')
+                            result = self.db_service.update_device_status(device['id'], 'In-Facility')
                             current_status = 'In-Facility'
-                            logger.info(f"Device {device['id']} marked as In-Facility (was: {device['status']})")
+                            logger.info(f"Device {device['id']} marked as In-Facility (was: {device['status']}) - success: {result}")
+                        else:
+                            # For any unexpected status, use the current status
+                            current_status = device['status']
+                            logger.info(f"Device {device['id']} status unchanged: {current_status}")
                         
                         # Create RFID alert regardless of status change
                         try:
