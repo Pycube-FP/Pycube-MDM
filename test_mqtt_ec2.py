@@ -43,7 +43,7 @@ CERTIFICATE = os.path.join(CERTS_DIR, "011d91c58df6cf46eff8bc6138893756f79cfa35a
 ROOT_CA = os.path.join(CERTS_DIR, "AmazonRootCA1.pem")
 
 # Constants for status change thresholds
-STATUS_CHANGE_THRESHOLD = timedelta(minutes=5)  # Minimum time between status changes
+STATUS_CHANGE_THRESHOLD = timedelta(minutes=0)  # No delay between status changes
 MISSING_THRESHOLD = timedelta(minutes=45)  # Time after which a temporarily out device is considered missing
 
 def get_current_est_time():
@@ -135,10 +135,10 @@ class MQTTClient(mqtt.Client):
                     current_time = get_current_est_time()
                     time_since_update = current_time - last_update
                     
-                    # If status was updated recently, skip change
-                    if time_since_update < STATUS_CHANGE_THRESHOLD:
-                        logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
-                        return False
+                    # Removing the status change cooldown - process all status changes immediately
+                    # if time_since_update < STATUS_CHANGE_THRESHOLD:
+                    #     logger.info(f"Skipping status change - Last update was {time_since_update.total_seconds():.0f} seconds ago")
+                    #     return False
                     
                     # If device is temporarily out or missing and read again, mark it as In-Facility
                     if current_status == 'Temporarily Out' or current_status == 'Missing':
@@ -254,9 +254,10 @@ class MQTTClient(mqtt.Client):
                         if device['status'] == 'In-Facility':
                             self.update_device_status(device['id'], 'Temporarily Out')
                             logger.info(f"Device {device['id']} marked as Temporarily Out")
-                        # For devices with other statuses, use the existing check method
-                        else:
-                            self.check_and_update_status(device['id'], device['status'])
+                        # If device is temporarily out or missing, mark as in-facility immediately
+                        elif device['status'] == 'Temporarily Out' or device['status'] == 'Missing':
+                            self.update_device_status(device['id'], 'In-Facility')
+                            logger.info(f"Device {device['id']} marked as In-Facility (was: {device['status']})")
                         
                         # Create RFID alert regardless of status change
                         try:

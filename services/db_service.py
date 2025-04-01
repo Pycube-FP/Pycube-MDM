@@ -214,6 +214,7 @@ class DBService:
                     reader_id VARCHAR(36),
                     hospital_id VARCHAR(36),
                     location_id VARCHAR(36),
+                    status VARCHAR(50) DEFAULT 'Temporarily Out',
                     timestamp DATETIME,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -584,9 +585,15 @@ class DBService:
             alert_query = """
                 INSERT INTO rfid_alerts (
                     id, device_id, reader_id, hospital_id, location_id,
-                    timestamp, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    status, timestamp, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """
+            
+            # Get current device status to use for the alert status
+            status_query = "SELECT status FROM devices WHERE id = %s"
+            cursor.execute(status_query, (device['id'],))
+            device_status_row = cursor.fetchone()
+            device_status = device_status_row['status'] if device_status_row else 'Temporarily Out'
             
             alert_values = (
                 rfid_alert.id,  # Use the ID from the RFIDAlert object
@@ -594,6 +601,7 @@ class DBService:
                 reader['id'],
                 reader['hospital_id'],
                 reader['location_id'],
+                device_status,
                 rfid_alert.timestamp,
                 datetime.now(),
                 datetime.now()
@@ -798,7 +806,7 @@ class DBService:
             
             # Start building the query with a WHERE 1=1 clause to make dynamic filtering easier
             query = """
-                SELECT a.id, a.timestamp, a.device_id, a.location_id,
+                SELECT a.id, a.timestamp, a.device_id, a.location_id, a.status as alert_status,
                        d.model as device_name, d.serial_number, d.status as device_status,
                        l.name as location_name
                 FROM rfid_alerts a
@@ -1963,6 +1971,7 @@ class DBService:
                     d.model as device_name,
                     d.serial_number,
                     d.model,
+                    d.status as device_status,
                     d.rfid_tag as asset_tag,
                     l.name as location_name,
                     l.type as location_type,
@@ -1984,6 +1993,11 @@ class DBService:
             """
             cursor.execute(query, (alert_id,))
             alert = cursor.fetchone()
+            
+            # Default alert status if not present in the database
+            if alert and 'status' not in alert:
+                alert['status'] = 'Temporarily Out'
+                
             return alert
         finally:
             cursor.close()
