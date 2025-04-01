@@ -12,20 +12,16 @@ from services.db_service import DBService
 from models.rfid_alert import RFIDAlert
 import uuid
 from apscheduler.schedulers.background import BackgroundScheduler
-import sys
 
 # Set up logging with debug level
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s - %(levelname)s - %(module)s - %(message)s',
+    format='%(asctime)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.StreamHandler(stream=sys.stdout)  # Ensure logs go to stdout
+        logging.StreamHandler()  # Only console output
     ]
 )
 logger = logging.getLogger(__name__)
-
-# Enable APScheduler logging
-logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
 # Enable Paho MQTT debug
 logger_paho = logging.getLogger('paho.mqtt')
@@ -37,14 +33,8 @@ MQTT_TOPIC = "6B6035_tagdata"
 MQTT_PORT = 8883
 KEEP_ALIVE = 60
 
-# Logging configuration
-LOG_DIRECTORY = os.path.expanduser("~/logs")
-
 # Timezone configuration
 TIMEZONE = pytz.timezone('America/New_York')
-
-# Readers at exit gates (for status change logic)
-EXIT_GATES = ["EXIT1", "EXIT2", "EXIT3"]  # Replace with actual exit reader IDs
 
 # Certificate paths for EC2
 CERTS_DIR = os.path.expanduser("~/certs")
@@ -58,9 +48,7 @@ MISSING_THRESHOLD = timedelta(minutes=2)  # Time after which a temporarily out d
 
 def get_current_est_time():
     """Get current time in Eastern Time"""
-    # Create a timezone-aware UTC time and then convert to EST
-    utc_now = datetime.now(pytz.UTC)
-    return utc_now.astimezone(TIMEZONE)
+    return datetime.now(TIMEZONE)
 
 def verify_certificates():
     """Verify all certificate files exist and are readable"""
@@ -76,45 +64,15 @@ def verify_certificates():
         if stat.st_mode & 0o077:  # Check if group or others have any permissions
             logger.warning(f"Warning: {cert_file} has loose permissions. Recommended: chmod 600")
 
-class MQTTClient:
-    def __init__(self, broker=MQTT_ENDPOINT, port=MQTT_PORT, topics=[MQTT_TOPIC], exit_gates=EXIT_GATES):
-        """Initialize the MQTT client"""
-        # Set up the MQTT client
-        self.broker = broker
-        self.port = port
-        self.topics = topics if isinstance(topics, list) else [topics]
-        self.exit_gates = exit_gates
-        self.scheduler = None
-        
-        # Create a new client instance
-        client_id = f'pycube-mdm-client-{os.getpid()}-{time.time()}'
-        self.client = mqtt.Client(client_id=client_id)
-        
-        # Set up callbacks
-        self.client.on_connect = self.on_connect
-        self.client.on_message = self.on_message
-        self.client.on_disconnect = self.on_disconnect
-        
-        # Configure TLS with the certificate files from constants
-        if all(os.path.exists(f) for f in [ROOT_CA, CERTIFICATE, PRIVATE_KEY]):
-            logger.info("Setting up TLS with certificates")
-            self.client.tls_set(
-                ca_certs=ROOT_CA,
-                certfile=CERTIFICATE,
-                keyfile=PRIVATE_KEY,
-                cert_reqs=ssl.CERT_REQUIRED,
-                tls_version=ssl.PROTOCOL_TLSv1_2
-            )
-            # Set reconnect behavior
-            self.client.reconnect_delay_set(min_delay=1, max_delay=30)
-        else:
-            logger.warning("Certificates not found, connecting without TLS")
-        
+class MQTTClient(mqtt.Client):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.connected = False
         self.message_count = 0
         self.last_message_time = None
         self.connection_time = None
         self.db_service = DBService()
+        self.scheduler = None
         
         # Set clean session to False to maintain subscription state
         self.clean_session = False
@@ -126,27 +84,19 @@ class MQTTClient:
         """Initialize database connection and tables"""
         try:
             logger.info("Initializing database connection...")
-            # Check if the DBService has an initialize_db method
+            # Use DBService's initialize_db method if it exists
             if hasattr(self.db_service, 'initialize_db'):
                 self.db_service.initialize_db()
                 logger.info("Database initialized successfully")
             else:
-                # If not, assume the constructor handles initialization
-                logger.info("Using pre-initialized database connection")
-            
-            # Test the connection by getting a device or some simple operation
-            try:
-                result = self.db_service.execute_query("SELECT 1")
-                logger.info("Database connection test successful")
-                
-                # Check timezone settings to help diagnose time-related issues
-                self.check_database_timezone()
-                
-            except Exception as e:
-                logger.error(f"Database connection test failed: {e}", exc_info=True)
-                
+                # Just test the connection
+                with self.db_service.get_connection() as conn:
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT 1")
+                logger.info("Database connection successful")
         except Exception as e:
-            logger.error(f"Error initializing database: {e}", exc_info=True)
+            logger.error(f"Error initializing database: {e}")
+            raise
 
     def check_for_missing_devices(self):
         """Check for devices that have been temporarily out for too long and mark them as missing"""
@@ -169,36 +119,25 @@ class MQTTClient:
                         return
                     
                     current_time = get_current_est_time()
-                    logger.info(f"Current time: {current_time} (TZ: {current_time.tzinfo})")
                     marked_missing_count = 0
                     
                     for device in temp_out_devices:
                         # Make sure the timestamp has timezone info
                         last_update = device['updated_at']
-                        logger.info(f"Original last_update for device {device['id']}: {last_update} (TZ: {last_update.tzinfo if hasattr(last_update, 'tzinfo') else None})")
-                        
                         if not last_update.tzinfo:
                             last_update = TIMEZONE.localize(last_update)
-                            logger.info(f"Localized last_update: {last_update} (TZ: {last_update.tzinfo})")
                             
-                        # Fix for negative time values - ensure we're comparing times correctly
-                        time_diff_seconds = (current_time - last_update).total_seconds()
-                        time_since_update = abs(time_diff_seconds) / 60
+                        time_since_update = current_time - last_update
+                        time_minutes = time_since_update.total_seconds() / 60
                         
-                        logger.info(f"Raw time difference: {time_diff_seconds:.1f} seconds ({time_diff_seconds/60:.1f} minutes)")
-                        logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')}) has been out for {time_since_update:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60} minutes)")
+                        logger.info(f"Device {device['id']} ({device.get('serial_number', 'Unknown')}) has been out for {time_minutes:.1f} minutes (threshold: {MISSING_THRESHOLD.total_seconds()/60} minutes)")
                         
-                        # Use actual positive time since update for comparison
-                        if time_since_update >= MISSING_THRESHOLD.total_seconds() / 60:
-                            # Verify this is actually a valid case before marking missing
-                            if time_diff_seconds > 0:  # Only mark as missing if time is actually in the past
-                                result = self.db_service.update_device_status(device['id'], 'Missing')
-                                logger.info(f"Device {device['id']} has been out for {time_since_update:.1f} minutes - marking as Missing - success: {result}")
-                                marked_missing_count += 1
-                            else:
-                                logger.warning(f"Device {device['id']} shows negative time ({time_diff_seconds/60:.1f} mins) - possible clock or timezone issue, not marking as Missing")
+                        if time_since_update >= MISSING_THRESHOLD:
+                            result = self.db_service.update_device_status(device['id'], 'Missing')
+                            logger.info(f"Device {device['id']} has been out for {time_minutes:.1f} minutes - marking as Missing - success: {result}")
+                            marked_missing_count += 1
                         else:
-                            logger.info(f"Device {device['id']} has not exceeded the threshold ({time_since_update:.1f} < {MISSING_THRESHOLD.total_seconds()/60} minutes) - no status change")
+                            logger.info(f"Device {device['id']} has not exceeded the threshold ({time_minutes:.1f} < {MISSING_THRESHOLD.total_seconds()/60} minutes) - no status change")
                     
                     logger.info(f"Marked {marked_missing_count} of {len(temp_out_devices)} devices as Missing based on time threshold")
             
@@ -260,26 +199,28 @@ class MQTTClient:
             logger.error(f"Error updating device status: {e}")
             return False
 
-    def on_connect(self, client, userdata, flags, rc):
-        """Callback when the client receives a CONNACK response from the server"""
-        connection_status = {
-            0: "Connection successful",
-            1: "Connection refused - incorrect protocol version",
-            2: "Connection refused - invalid client identifier",
-            3: "Connection refused - server unavailable",
-            4: "Connection refused - bad username or password",
-            5: "Connection refused - not authorised"
-        }
-        
-        if rc == 0:
-            logger.info("Successfully connected to MQTT broker")
-            # Subscribe to topics on successful connection
-            for topic in self.topics:
-                self.client.subscribe(topic)
-                logger.info(f"Subscribed to topic: {topic}")
+    def on_connect(self, client, userdata, flags, reason_code, properties):
+        """Callback when connected to MQTT broker"""
+        if reason_code == mqtt.CONNACK_ACCEPTED:
+            self.connection_time = get_current_est_time()
+            logger.info("Successfully connected to MQTT broker!")
+            logger.debug(f"Connection flags: {flags}")
+            logger.debug(f"Properties: {properties}")
+            
+            # Subscribe with QoS 1
+            result, mid = self.subscribe([(MQTT_TOPIC, 1)])
+            logger.info(f"Subscribed to topic: {MQTT_TOPIC} with QoS 1, Result: {result}, Message ID: {mid}")
+            self.connected = True
+            
+            # Publish a test message to verify publishing works
+            test_msg = {
+                "test": "connection",
+                "timestamp": get_current_est_time().isoformat()
+            }
+            self.publish(MQTT_TOPIC, json.dumps(test_msg), qos=1)
         else:
-            status = connection_status.get(rc, f"Unknown error (code {rc})")
-            logger.error(f"Failed to connect to MQTT broker: {status}")
+            logger.error(f"Failed to connect, reason code: {reason_code}")
+            self.connected = False
 
     def on_message(self, client, userdata, msg):
         """Callback when message is received"""
@@ -390,67 +331,78 @@ class MQTTClient:
                 logger.info(f"Subscription QoS level: {rc}")
 
     def on_disconnect(self, client, userdata, rc):
-        """Callback when disconnected from MQTT broker"""
-        if rc == 0:
-            logger.info("Disconnected from MQTT broker")
-        else:
-            logger.warning(f"Unexpected disconnect from MQTT broker with code {rc}")
+        """Callback when disconnected"""
         self.connected = False
+        logger.warning(f"Disconnected with result code: {rc}")
+        if rc != 0:
+            logger.error("Unexpected disconnection. Will attempt to reconnect.")
 
     def run(self):
-        """Connect to the MQTT broker and run forever"""
-        # Set up logging for APScheduler
-        logging.getLogger('apscheduler').setLevel(logging.DEBUG)
-        
-        # Initialize database
-        self.initialize_database()
-        
-        # Start the scheduler
-        logger.info("Starting scheduler service...")
-        self.start_scheduler()
-
+        """Start the MQTT client and connect to the broker"""
         try:
-            # Connect to the MQTT broker
-            logger.info(f"Connecting to MQTT broker at {self.broker}:{self.port}...")
-            self.client.connect(self.broker, self.port, 60)
+            # Connect to database and initialize tables if needed
+            self.initialize_database()
             
-            # Start the MQTT client loop - this will handle reconnections automatically
-            logger.info("Starting MQTT client loop...")
-            self.client.loop_forever()
-            
+            # Try to connect
+            if self.connect():
+                logger.info("Connected to the MQTT broker")
+                
+                # Start the scheduler to check for missing devices periodically
+                logger.info("Starting scheduler for regular maintenance tasks")
+                
+                # Enable APScheduler logging
+                logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+                
+                # Create a new scheduler if one doesn't exist or is not running
+                if not self.scheduler or not self.scheduler.running:
+                    self.scheduler = BackgroundScheduler(timezone=TIMEZONE)
+                    
+                    # Add the check_for_missing_devices job
+                    self.scheduler.add_job(
+                        self.check_for_missing_devices, 
+                        'interval', 
+                        minutes=2,  # Check every 2 minutes
+                        id='check_missing_devices',
+                        next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=15)  # Run 15 seconds after startup
+                    )
+                    
+                    # Start the scheduler
+                    self.scheduler.start()
+                    logger.info("Scheduler started - will check for missing devices every 2 minutes, first check in 15 seconds")
+                
+                # Keep the main thread running
+                while True:
+                    if not self.client.is_connected():
+                        logger.warning("Connection lost, attempting to reconnect...")
+                        self.connect()
+                    
+                    # Periodically log that scheduler is running to confirm it's active
+                    if self.scheduler and self.scheduler.running:
+                        logger.debug(f"Scheduler is running with {len(self.scheduler.get_jobs())} jobs")
+                    else:
+                        logger.warning("Scheduler is not running! Attempting to restart...")
+                        self.start_scheduler()
+                    
+                    time.sleep(60)  # Check connection and log scheduler status every minute
+            else:
+                logger.error("Failed to connect to the MQTT broker")
         except KeyboardInterrupt:
-            logger.info("Keyboard interrupt received, shutting down...")
-        except Exception as e:
-            logger.error(f"Error in MQTT connection: {e}", exc_info=True)
-        finally:
-            # Clean up
-            logger.info("Shutting down MQTT client and scheduler...")
-            self.client.loop_stop()
+            logger.info("Stopping MQTT client")
             self.shutdown_scheduler()
             if self.client.is_connected():
                 self.client.disconnect()
-            logger.info("Shutdown complete")
-
-    def log_scheduler_status(self):
-        """Log that the scheduler is running and list all jobs"""
-        try:
-            if self.scheduler and self.scheduler.running:
-                jobs = self.scheduler.get_jobs()
-                logger.info("SCHEDULER STATUS: Running with %d jobs", len(jobs))
-                for job in jobs:
-                    logger.info("SCHEDULER JOB: %s, next run: %s", job.id, job.next_run_time)
-            else:
-                logger.warning("SCHEDULER STATUS: Not running")
-                self.start_scheduler()
         except Exception as e:
-            logger.error(f"Error logging scheduler status: {e}", exc_info=True)
-    
+            logger.error(f"Error running MQTT client: {e}")
+            self.shutdown_scheduler()
+            if self.client.is_connected():
+                self.client.disconnect()
+                
     def start_scheduler(self):
         """Start the scheduler if it's not already running"""
         try:
             if not self.scheduler or not self.scheduler.running:
                 logger.info("Starting scheduler...")
-                self.scheduler = BackgroundScheduler(timezone=TIMEZONE, daemon=False)
+                self.scheduler = BackgroundScheduler(timezone=TIMEZONE)
                 self.scheduler.add_job(
                     self.check_for_missing_devices, 
                     'interval', 
@@ -458,24 +410,10 @@ class MQTTClient:
                     id='check_missing_devices',
                     next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=5)
                 )
-                self.scheduler.add_job(
-                    self.log_scheduler_status,
-                    'interval',
-                    seconds=60,
-                    id='log_scheduler_status',
-                    next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=15)
-                )
                 self.scheduler.start()
-                logger.info("Scheduler restarted successfully with %d jobs", len(self.scheduler.get_jobs()))
-                
-                # Log timezone information to help debug time-related issues
-                current_time = get_current_est_time()
-                logger.info(f"Current time when starting scheduler: {current_time} (TZ: {current_time.tzinfo})")
-                
-                # Force immediate run
-                self.check_for_missing_devices()
+                logger.info("Scheduler restarted successfully")
         except Exception as e:
-            logger.error(f"Error starting scheduler: {e}", exc_info=True)
+            logger.error(f"Error starting scheduler: {e}")
     
     def shutdown_scheduler(self):
         """Safely shut down the scheduler"""
@@ -485,76 +423,44 @@ class MQTTClient:
                 self.scheduler.shutdown()
                 logger.info("Scheduler shut down successfully")
             except Exception as e:
-                logger.error(f"Error shutting down scheduler: {e}", exc_info=True)
-
-    def enable_logger(self, logger):
-        """Enable MQTT client internal logging"""
-        try:
-            self.client.enable_logger(logger)
-            logger.info("MQTT client internal logging enabled")
-        except Exception as e:
-            logger.warning(f"Failed to enable MQTT client internal logging: {e}")
-            # Continue without internal logging
-
-    def check_database_timezone(self):
-        """Check the database server timezone and connection settings"""
-        try:
-            logger.info("Checking database timezone settings...")
-            with self.db_service.get_connection() as connection:
-                with connection.cursor() as cursor:
-                    # Check database server timezone
-                    cursor.execute("SELECT @@global.time_zone, @@session.time_zone")
-                    result = cursor.fetchone()
-                    if result:
-                        global_tz, session_tz = result
-                        logger.info(f"Database timezone settings - Global: {global_tz}, Session: {session_tz}")
-                    
-                    # Check current timestamp from database
-                    cursor.execute("SELECT NOW(), CURRENT_TIMESTAMP()")
-                    result = cursor.fetchone()
-                    if result:
-                        db_now, db_timestamp = result
-                        logger.info(f"Database current time - NOW(): {db_now}, CURRENT_TIMESTAMP(): {db_timestamp}")
-                    
-                    # Check system time
-                    system_now = datetime.now()
-                    system_now_utc = datetime.now(pytz.UTC)
-                    system_now_est = get_current_est_time()
-                    logger.info(f"System time - Local: {system_now}, UTC: {system_now_utc}, EST: {system_now_est}")
-                    
-        except Exception as e:
-            logger.error(f"Error checking database timezone: {e}", exc_info=True)
+                logger.error(f"Error shutting down scheduler: {e}")
 
 def main():
     # Verify certificates exist
-    for cert_file in [ROOT_CA, CERTIFICATE, PRIVATE_KEY]:
-        if not os.path.exists(cert_file):
-            logger.error(f"Certificate file not found: {cert_file}")
-            sys.exit(1)
+    verify_certificates()
+    
+    # Create MQTT client with persistent session
+    client = MQTTClient(
+        protocol=mqtt.MQTTv5,
+        callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+        client_id="ec2-rfid-client"  # Add a specific client ID
+    )
+    
+    # Configure TLS
+    client.tls_set(
+        ca_certs=ROOT_CA,
+        certfile=CERTIFICATE,
+        keyfile=PRIVATE_KEY,
+        cert_reqs=ssl.CERT_REQUIRED,
+        tls_version=ssl.PROTOCOL_TLSv1_2
+    )
+    
+    # Set reconnect behavior
+    client.reconnect_delay_set(min_delay=1, max_delay=30)
     
     try:
-        # Log directory check and creation
-        if not os.path.exists(LOG_DIRECTORY):
-            os.makedirs(LOG_DIRECTORY)
-            logger.info(f"Created log directory: {LOG_DIRECTORY}")
+        logger.info(f"Connecting to {MQTT_ENDPOINT}...")
+        client.connect(MQTT_ENDPOINT, MQTT_PORT, KEEP_ALIVE)
         
-        # Create and run MQTT client
-        client = MQTTClient(
-            broker=MQTT_ENDPOINT,
-            port=MQTT_PORT,
-            topics=[MQTT_TOPIC],
-            exit_gates=EXIT_GATES
-        )
-        
-        # Run the client (this will handle connections, scheduler, etc.)
-        client.run()
+        # Start the loop
+        client.loop_forever()
         
     except KeyboardInterrupt:
-        logger.info("Shutting down due to keyboard interrupt...")
+        logger.info("Shutting down...")
+        client.disconnect()
     except Exception as e:
-        logger.error(f"Error in main: {e}", exc_info=True)
-    
-    logger.info("MQTT service exiting")
+        logger.error(f"Error: {e}", exc_info=True)
+        raise
 
 if __name__ == "__main__":
     main() 
