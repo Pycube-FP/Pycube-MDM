@@ -48,7 +48,13 @@ MISSING_THRESHOLD = timedelta(minutes=2)  # Time after which a temporarily out d
 
 def get_current_est_time():
     """Get current time in Eastern Time"""
-    return datetime.now(TIMEZONE)
+    # Create a timezone-aware UTC time 
+    utc_now = datetime.now(pytz.UTC)
+    
+    # Convert to EST
+    est_now = utc_now.astimezone(TIMEZONE)
+    
+    return est_now
 
 def verify_certificates():
     """Verify all certificate files exist and are readable"""
@@ -79,6 +85,56 @@ class MQTTClient(mqtt.Client):
         
         # Enable internal MQTT client debugging
         self.enable_logger(logger)
+        
+        # Initialize scheduler
+        self._init_scheduler()
+
+    def _init_scheduler(self):
+        """Initialize the scheduler"""
+        if not self.scheduler or not self.scheduler.running:
+            logger.info("Initializing scheduler...")
+            # Enable APScheduler logging
+            logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+            
+            self.scheduler = BackgroundScheduler(timezone=TIMEZONE)
+            
+            # Add the check_for_missing_devices job
+            self.scheduler.add_job(
+                self.check_for_missing_devices, 
+                'interval', 
+                minutes=2,  # Check every 2 minutes
+                id='check_missing_devices',
+                next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=15)  # Run 15 seconds after startup
+            )
+            
+            # Add a job to periodically log scheduler status
+            self.scheduler.add_job(
+                self._log_scheduler_status,
+                'interval',
+                seconds=30,  # Log scheduler status every 30 seconds
+                id='log_scheduler_status',
+                next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=5)  # Start after 5 seconds
+            )
+            
+            # Start the scheduler
+            logger.info("Starting scheduler")
+            self.scheduler.start()
+            logger.info(f"Scheduler started with {len(self.scheduler.get_jobs())} jobs")
+            logger.info("Will check for missing devices every 2 minutes")
+
+    def _log_scheduler_status(self):
+        """Log scheduler status for diagnostics"""
+        try:
+            if self.scheduler and self.scheduler.running:
+                jobs = self.scheduler.get_jobs()
+                logger.info(f"SCHEDULER STATUS: Running with {len(jobs)} jobs")
+                for job in jobs:
+                    logger.info(f"  JOB: {job.id}, next run at: {job.next_run_time}")
+            else:
+                logger.warning("SCHEDULER STATUS: Not running - attempting to restart")
+                self._init_scheduler()
+        except Exception as e:
+            logger.error(f"Error in _log_scheduler_status: {e}", exc_info=True)
 
     def initialize_database(self):
         """Initialize database connection and tables"""
@@ -101,7 +157,7 @@ class MQTTClient(mqtt.Client):
     def check_for_missing_devices(self):
         """Check for devices that have been temporarily out for too long and mark them as missing"""
         try:
-            logger.info("Checking for devices that have been temporarily out for too long...")
+            logger.info("===== SCHEDULED TASK: CHECKING FOR MISSING DEVICES =====")
             with self.db_service.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
                     query = """
@@ -116,6 +172,7 @@ class MQTTClient(mqtt.Client):
                     
                     if len(temp_out_devices) == 0:
                         logger.info("No devices to check for missing status")
+                        logger.info("===== FINISHED CHECKING FOR MISSING DEVICES =====")
                         return
                     
                     current_time = get_current_est_time()
@@ -141,7 +198,7 @@ class MQTTClient(mqtt.Client):
                     
                     logger.info(f"Marked {marked_missing_count} of {len(temp_out_devices)} devices as Missing based on time threshold")
             
-            logger.info("Finished checking for missing devices")
+            logger.info("===== FINISHED CHECKING FOR MISSING DEVICES =====")
         except Exception as e:
             logger.error(f"Error checking for missing devices: {e}", exc_info=True)
 
@@ -218,6 +275,13 @@ class MQTTClient(mqtt.Client):
                 "timestamp": get_current_est_time().isoformat()
             }
             self.publish(MQTT_TOPIC, json.dumps(test_msg), qos=1)
+            
+            # Ensure scheduler is running
+            if not self.scheduler or not self.scheduler.running:
+                logger.info("Scheduler not running on connect, starting...")
+                self._init_scheduler()
+            else:
+                logger.info(f"Scheduler is already running with {len(self.scheduler.get_jobs())} jobs")
         else:
             logger.error(f"Failed to connect, reason code: {reason_code}")
             self.connected = False
@@ -343,32 +407,17 @@ class MQTTClient(mqtt.Client):
             # Connect to database and initialize tables if needed
             self.initialize_database()
             
+            # Make sure scheduler is running
+            if not self.scheduler or not self.scheduler.running:
+                logger.info("Scheduler not running, initializing...")
+                self._init_scheduler()
+                
             # Try to connect
             if self.connect():
                 logger.info("Connected to the MQTT broker")
                 
                 # Start the scheduler to check for missing devices periodically
                 logger.info("Starting scheduler for regular maintenance tasks")
-                
-                # Enable APScheduler logging
-                logging.getLogger('apscheduler').setLevel(logging.DEBUG)
-                
-                # Create a new scheduler if one doesn't exist or is not running
-                if not self.scheduler or not self.scheduler.running:
-                    self.scheduler = BackgroundScheduler(timezone=TIMEZONE)
-                    
-                    # Add the check_for_missing_devices job
-                    self.scheduler.add_job(
-                        self.check_for_missing_devices, 
-                        'interval', 
-                        minutes=2,  # Check every 2 minutes
-                        id='check_missing_devices',
-                        next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=15)  # Run 15 seconds after startup
-                    )
-                    
-                    # Start the scheduler
-                    self.scheduler.start()
-                    logger.info("Scheduler started - will check for missing devices every 2 minutes, first check in 15 seconds")
                 
                 # Keep the main thread running
                 while True:
@@ -381,7 +430,7 @@ class MQTTClient(mqtt.Client):
                         logger.debug(f"Scheduler is running with {len(self.scheduler.get_jobs())} jobs")
                     else:
                         logger.warning("Scheduler is not running! Attempting to restart...")
-                        self.start_scheduler()
+                        self._init_scheduler()
                     
                     time.sleep(60)  # Check connection and log scheduler status every minute
             else:
@@ -397,24 +446,6 @@ class MQTTClient(mqtt.Client):
             if self.client.is_connected():
                 self.client.disconnect()
                 
-    def start_scheduler(self):
-        """Start the scheduler if it's not already running"""
-        try:
-            if not self.scheduler or not self.scheduler.running:
-                logger.info("Starting scheduler...")
-                self.scheduler = BackgroundScheduler(timezone=TIMEZONE)
-                self.scheduler.add_job(
-                    self.check_for_missing_devices, 
-                    'interval', 
-                    minutes=2,
-                    id='check_missing_devices',
-                    next_run_time=datetime.now(TIMEZONE) + timedelta(seconds=5)
-                )
-                self.scheduler.start()
-                logger.info("Scheduler restarted successfully")
-        except Exception as e:
-            logger.error(f"Error starting scheduler: {e}")
-    
     def shutdown_scheduler(self):
         """Safely shut down the scheduler"""
         if hasattr(self, 'scheduler') and self.scheduler:

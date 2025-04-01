@@ -5,9 +5,13 @@ from datetime import datetime, timedelta
 import json
 from dotenv import load_dotenv
 import uuid
+import pytz
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Configure timezone
+TIMEZONE = pytz.timezone('America/New_York')
 
 # Define time threshold constants
 MISSING_THRESHOLD = timedelta(minutes=45)  # Time after which a temporarily out device is considered missing
@@ -560,6 +564,14 @@ class DBService:
             if not device:
                 raise Exception(f"Device with RFID tag {rfid_alert.rfid_tag} not found")
             
+            # Ensure we have timezone-aware timestamps
+            current_time = datetime.now(TIMEZONE)
+            
+            # Ensure rfid_alert timestamp has timezone info
+            alert_timestamp = rfid_alert.timestamp
+            if alert_timestamp and not alert_timestamp.tzinfo:
+                alert_timestamp = TIMEZONE.localize(alert_timestamp)
+            
             # Record the reader event for history
             event_query = """
                 INSERT INTO reader_events (
@@ -576,8 +588,8 @@ class DBService:
                 rfid_alert.antenna_number,
                 reader['hospital_id'],
                 reader['location_id'],
-                rfid_alert.timestamp,
-                datetime.now()
+                alert_timestamp,
+                current_time
             )
             
             cursor.execute(event_query, event_values)
@@ -610,9 +622,9 @@ class DBService:
                 reader['location_id'],
                 device_status,
                 previous_status,
-                rfid_alert.timestamp,
-                datetime.now(),
-                datetime.now()
+                alert_timestamp,
+                current_time,
+                current_time
             )
             
             cursor.execute(alert_query, alert_values)
@@ -623,7 +635,7 @@ class DBService:
                 SET location_id = %s, updated_at = %s
                 WHERE id = %s
             """
-            cursor.execute(update_query, (reader['location_id'], datetime.now(), device['id']))
+            cursor.execute(update_query, (reader['location_id'], current_time, device['id']))
             
             connection.commit()
             return rfid_alert.id
@@ -993,7 +1005,10 @@ class DBService:
                 WHERE id = %s
             """
             
-            values = (status, datetime.now(), device_id)
+            # Use timezone-aware timestamp
+            current_time = datetime.now(TIMEZONE)
+            
+            values = (status, current_time, device_id)
             
             cursor.execute(query, values)
             connection.commit()

@@ -1,5 +1,9 @@
 from datetime import datetime
 import uuid
+import pytz
+
+# Configure timezone
+TIMEZONE = pytz.timezone('America/New_York')
 
 class RFIDAlert:
     """
@@ -14,9 +18,19 @@ class RFIDAlert:
         self.reader_id = reader_id
         self.hospital_id = hospital_id
         self.location_id = location_id  # Reference to locations table
-        self.timestamp = timestamp or datetime.now()
-        self.created_at = created_at or datetime.now()
-        self.updated_at = updated_at or datetime.now()
+        
+        # Use timezone-aware timestamps with EST
+        now = datetime.now(TIMEZONE)
+        
+        # Set timestamp with timezone info
+        if timestamp:
+            self.timestamp = timestamp if timestamp.tzinfo else TIMEZONE.localize(timestamp)
+        else:
+            self.timestamp = now
+            
+        self.created_at = created_at if created_at and created_at.tzinfo else now
+        self.updated_at = updated_at if updated_at and updated_at.tzinfo else now
+        
         self.reader_code = reader_code
         self.antenna_number = antenna_number
         self.rfid_tag = rfid_tag
