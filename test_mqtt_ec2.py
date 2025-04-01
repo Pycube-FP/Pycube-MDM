@@ -253,13 +253,12 @@ class MQTTClient(mqtt.Client):
                     # Use a CTE to get the latest reader event for each temporarily out device
                     query = """
                         WITH latest_events AS (
-                            SELECT re.device_id, re.reader_id, r.reader_code, r.antenna_number,
+                            SELECT re.device_id, re.reader_code, re.antenna_number,
                                    ROW_NUMBER() OVER(PARTITION BY re.device_id ORDER BY re.timestamp DESC) as rn
                             FROM reader_events re
-                            JOIN readers r ON re.reader_id = r.id
                         )
                         SELECT d.id, d.updated_at, d.serial_number, d.rfid_tag, d.location_id, d.status,
-                               le.reader_id as last_reader_id, le.reader_code, le.antenna_number
+                               le.reader_code, le.antenna_number
                         FROM devices d
                         LEFT JOIN latest_events le ON d.id = le.device_id AND le.rn = 1
                         WHERE d.status = 'Temporarily Out'
