@@ -148,8 +148,9 @@
         
         <hr style="margin: var(--spacing-lg) 0;">
         
-        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
+        <div class="d-flex justify-content-center gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Add Device</button>
+            <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>

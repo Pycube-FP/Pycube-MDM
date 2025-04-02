@@ -99,9 +99,9 @@
         
         <hr style="margin: var(--spacing-lg) 0;">
         
-        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
-            <a href="{{ url_for('hospitals.index') }}" class="btn btn-info">Cancel</a>
+        <div class="d-flex justify-content-center gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Add Hospital</button>
+            <a href="{{ url_for('hospitals.index') }}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>

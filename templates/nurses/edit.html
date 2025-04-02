@@ -71,9 +71,9 @@
             </div>
         </div>
         
-        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-sm); margin-top: var(--spacing-lg);">
-            <a href="{{ url_for('nurses.show', nurse_id=nurse.id) }}" class="btn btn-secondary">Cancel</a>
+        <div class="d-flex justify-content-center gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Save Changes</button>
+            <a href="{{ url_for('nurses.show', nurse_id=nurse.id) }}" class="btn btn-secondary">Cancel</a>
         </div>
     </form>
 </div>
