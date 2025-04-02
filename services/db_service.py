@@ -352,7 +352,7 @@ class DBService:
             cursor.close()
             connection.close()
     
-    def get_all_devices(self, limit=100, offset=0, status=None, sort_by=None, sort_dir='asc'):
+    def get_all_devices(self, limit=100, offset=0, status=None, sort_by=None, sort_dir='asc', search_query=None):
         """Get all devices with optional filtering and sorting"""
         connection = self.get_connection()
         cursor = connection.cursor(dictionary=True)
@@ -371,10 +371,22 @@ class DBService:
             query = "SELECT * FROM devices"
             params = []
             
+            # Build WHERE clause conditionally
+            where_clauses = []
+            
             # Add status filter if provided
             if status:
-                query += " WHERE status = %s"
+                where_clauses.append("status = %s")
                 params.append(status)
+            
+            # Add search filter if provided (search by serial number)
+            if search_query:
+                where_clauses.append("serial_number LIKE %s")
+                params.append(f'%{search_query}%')
+            
+            # Combine WHERE clauses if any
+            if where_clauses:
+                query += " WHERE " + " AND ".join(where_clauses)
             
             # Add sorting if valid column is provided
             if sort_by and sort_by in valid_sort_columns:
@@ -1459,19 +1471,34 @@ class DBService:
             cursor.close()
             connection.close()
 
-    def get_device_count(self, status=None):
+    def get_device_count(self, status=None, search_query=None):
         """Get total count of devices with optional status filter"""
         connection = self.get_connection()
         cursor = connection.cursor()
         
         try:
-            if status:
-                query = "SELECT COUNT(*) FROM devices WHERE status = %s"
-                cursor.execute(query, (status,))
-            else:
-                query = "SELECT COUNT(*) FROM devices"
-                cursor.execute(query)
+            # Base query
+            query = "SELECT COUNT(*) FROM devices"
+            params = []
             
+            # Build WHERE clause conditionally
+            where_clauses = []
+            
+            # Add status filter if provided
+            if status:
+                where_clauses.append("status = %s")
+                params.append(status)
+                
+            # Add search filter if provided (search by serial number)
+            if search_query:
+                where_clauses.append("serial_number LIKE %s")
+                params.append(f'%{search_query}%')
+            
+            # Combine WHERE clauses if any
+            if where_clauses:
+                query += " WHERE " + " AND ".join(where_clauses)
+            
+            cursor.execute(query, tuple(params))
             count = cursor.fetchone()[0]
             return count
         except Exception as e:

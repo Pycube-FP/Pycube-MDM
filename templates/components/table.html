@@ -71,7 +71,7 @@
     </span>
 {% endmacro %}
 
-{% macro render_pagination(current_page, total_pages, base_url, sort_by=None, sort_dir=None, status=None, start_date=None, end_date=None) %}
+{% macro render_pagination(current_page, total_pages, base_url, sort_by=None, sort_dir=None, status=None, start_date=None, end_date=None, search=None) %}
 {% if total_pages > 1 %}
 <div class="pagination-container mt-4">
     <nav aria-label="Page navigation">
@@ -85,6 +85,7 @@
                 {% if status %}{% set prev_params = prev_params ~ '&status=' ~ status %}{% endif %}
                 {% if start_date %}{% set prev_params = prev_params ~ '&start_date=' ~ start_date %}{% endif %}
                 {% if end_date %}{% set prev_params = prev_params ~ '&end_date=' ~ end_date %}{% endif %}
+                {% if search %}{% set prev_params = prev_params ~ '&search=' ~ search %}{% endif %}
                 <a class="page-link" href="{{ base_url }}?{{ prev_params[1:] if current_page > 1 else '#' }}" aria-label="Previous">
                     <span aria-hidden="true">&laquo;</span> Previous
                 </a>
@@ -98,6 +99,7 @@
                 {% if status %}{% set page_params = page_params ~ '&status=' ~ status %}{% endif %}
                 {% if start_date %}{% set page_params = page_params ~ '&start_date=' ~ start_date %}{% endif %}
                 {% if end_date %}{% set page_params = page_params ~ '&end_date=' ~ end_date %}{% endif %}
+                {% if search %}{% set page_params = page_params ~ '&search=' ~ search %}{% endif %}
                 <li class="page-item {% if page == current_page %}active{% endif %}">
                     <a class="page-link" href="{{ base_url }}?{{ page_params[1:] }}">{{ page }}</a>
                 </li>
@@ -112,6 +114,7 @@
                 {% if status %}{% set next_params = next_params ~ '&status=' ~ status %}{% endif %}
                 {% if start_date %}{% set next_params = next_params ~ '&start_date=' ~ start_date %}{% endif %}
                 {% if end_date %}{% set next_params = next_params ~ '&end_date=' ~ end_date %}{% endif %}
+                {% if search %}{% set next_params = next_params ~ '&search=' ~ search %}{% endif %}
                 <a class="page-link" href="{{ base_url }}?{{ next_params[1:] if current_page < total_pages else '#' }}" aria-label="Next">
                     Next <span aria-hidden="true">&raquo;</span>
                 </a>

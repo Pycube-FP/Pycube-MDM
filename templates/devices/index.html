@@ -14,6 +14,71 @@
         {% endif %}
     </div>
 
+    <!-- Search and Filter Section -->
+    <div class="filters-container mb-4">
+        <!-- Search Form -->
+        <form action="{{ url_for('devices.index') }}" method="get" class="search-form mb-3">
+            <div class="input-group">
+                <input type="text" name="search" id="searchQuery" class="form-control" placeholder="Search by Serial Number..." value="{{ search_query or '' }}">
+                <button type="submit" class="btn btn-primary">Search</button>
+                {% if search_query %}
+                <a href="{{ url_for('devices.index') }}" class="btn btn-secondary">Clear</a>
+                {% endif %}
+            </div>
+            <!-- Preserve other filters/parameters when searching -->
+            {% if status_filter %}
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            {% endif %}
+            {% if sort_by %}
+            <input type="hidden" name="sort_by" value="{{ sort_by }}">
+            <input type="hidden" name="sort_dir" value="{{ sort_dir }}">
+            {% endif %}
+        </form>
+
+        <!-- Status Filters -->
+        <div class="status-filters mb-3">
+            <div class="row">
+                <div class="col-12 mb-2">
+                    <h5>Status Filters</h5>
+                </div>
+                <div class="status-filter-buttons">
+                    <a href="{{ url_for('devices.index', search=search_query, sort_by=sort_by, sort_dir=sort_dir) }}" 
+                       class="status-filter-btn {{ 'active' if not status_filter else '' }}" 
+                       data-status="all">
+                        <div class="icon-circle">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <span>All Devices</span>
+                    </a>
+                    <a href="{{ url_for('devices.index', status='In-Facility', search=search_query, sort_by=sort_by, sort_dir=sort_dir) }}" 
+                       class="status-filter-btn {{ 'active' if status_filter == 'In-Facility' else '' }}" 
+                       data-status="In-Facility">
+                        <div class="icon-circle success">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <span>In Facility</span>
+                    </a>
+                    <a href="{{ url_for('devices.index', status='Temporarily Out', search=search_query, sort_by=sort_by, sort_dir=sort_dir) }}" 
+                       class="status-filter-btn {{ 'active' if status_filter == 'Temporarily Out' else '' }}" 
+                       data-status="Temporarily Out">
+                        <div class="icon-circle warning">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <span>Temporarily Out</span>
+                    </a>
+                    <a href="{{ url_for('devices.index', status='Missing', search=search_query, sort_by=sort_by, sort_dir=sort_dir) }}" 
+                       class="status-filter-btn {{ 'active' if status_filter == 'Missing' else '' }}" 
+                       data-status="Missing">
+                        <div class="icon-circle danger">
+                            <i class="fas fa-question"></i>
+                        </div>
+                        <span>Missing</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {% call render_table(
         headers=[
             {'key': 'status', 'label': 'Status', 'sortable': true},
@@ -76,7 +141,8 @@
         base_url=url_for('devices.index'),
         sort_by=sort_by, 
         sort_dir=sort_dir,
-        status=status_filter
+        status=status_filter,
+        search=search_query
     ) }}
     {% endif %}
 </div>
@@ -148,7 +214,12 @@
             const sort = this.dataset.sort;
             const currentDir = new URLSearchParams(window.location.search).get('sort_dir') || 'asc';
             const newDir = currentDir === 'asc' ? 'desc' : 'asc';
-            window.location.href = `?sort_by=${sort}&sort_dir=${newDir}`;
+            
+            // Preserve search and status filters when sorting
+            const currentUrl = new URL(window.location.href);
+            currentUrl.searchParams.set('sort_by', sort);
+            currentUrl.searchParams.set('sort_dir', newDir);
+            window.location.href = currentUrl.toString();
         });
     });
 
@@ -220,6 +291,101 @@
     .pagination .page-item:last-child:not(.disabled) .page-link:hover {
         background-color: transparent;
         color: #333;
+    }
+
+    /* Status filter cards */
+    .status-filter-card {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-decoration: none;
+        color: var(--text-dark);
+        height: 100%;
+    }
+
+    .status-filter-card:hover {
+        transform: translateY(-5px);
+        box-shadow: var(--shadow-md);
+        text-decoration: none;
+        color: var(--text-dark);
+    }
+
+    .status-filter-card.active {
+        border: 2px solid var(--primary-color);
+        box-shadow: var(--shadow-md);
+        transform: translateY(-5px);
+    }
+
+    .status-filter-card .card-body {
+        padding: 1rem 0.5rem;
+    }
+
+    .search-form .input-group {
+        max-width: 500px;
+    }
+    
+    /* New button-style filters */
+    .status-filter-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+    }
+    
+    .status-filter-btn {
+        display: flex;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 20px;
+        background-color: #f0f0f0;
+        color: #333;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border: 1px solid #e0e0e0;
+        font-size: 0.875rem;
+    }
+    
+    .status-filter-btn:hover {
+        background-color: #e0e0e0;
+        text-decoration: none;
+        color: #333;
+    }
+    
+    .status-filter-btn.active {
+        border-color: var(--primary-color);
+        background-color: rgba(1, 4, 46, 0.05);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .icon-circle {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+        flex-shrink: 0;
+        font-size: 0.75rem;
+    }
+    
+    .icon-circle.success {
+        background-color: var(--success-color);
+        color: white;
+    }
+    
+    .icon-circle.warning {
+        background-color: var(--warning-color);
+        color: white;
+    }
+    
+    .icon-circle.danger {
+        background-color: var(--alert-color);
+        color: white;
+    }
+    
+    .status-filter-btn span {
+        font-weight: 500;
     }
 </style>
 {% endblock %} 

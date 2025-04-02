@@ -35,6 +35,7 @@ def calculate_iphone_compliance(model):
 def index():
     """Render the devices list page"""
     status_filter = request.args.get('status')
+    search_query = request.args.get('search')
     page = int(request.args.get('page', 1))
     limit = 10
     offset = (page - 1) * limit
@@ -46,7 +47,7 @@ def index():
     db_service = DBService()
     
     # Get total count and calculate total pages
-    total_count = db_service.get_device_count(status_filter)
+    total_count = db_service.get_device_count(status=status_filter, search_query=search_query)
     total_pages = (total_count + limit - 1) // limit  # Ceiling division
     
     devices = db_service.get_all_devices(
@@ -54,7 +55,8 @@ def index():
         offset=offset, 
         status=status_filter,
         sort_by=sort_by,
-        sort_dir=sort_dir
+        sort_dir=sort_dir,
+        search_query=search_query
     )
     
     return render_template(
@@ -63,6 +65,7 @@ def index():
         current_page=page,
         total_pages=total_pages,
         status_filter=status_filter,
+        search_query=search_query,
         sort_by=sort_by,
         sort_dir=sort_dir
     )
