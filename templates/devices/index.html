@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "components/table.html" import render_table, render_actions, render_status_badge %}
+{% from "components/table.html" import render_table, render_actions, render_status_badge, render_pagination %}
 
 {% block title %}Devices - Pycube MDM{% endblock %}
 
@@ -67,6 +67,18 @@
         </tr>
         {% endfor %}
     {% endcall %}
+
+    {# Add pagination here #}
+    {% if total_pages > 1 %}
+    {{ render_pagination(
+        current_page=current_page, 
+        total_pages=total_pages, 
+        base_url=url_for('devices.index'),
+        sort_by=sort_by, 
+        sort_dir=sort_dir,
+        status=status_filter
+    ) }}
+    {% endif %}
 </div>
 
 <!-- Delete Confirmation Modal -->
@@ -143,4 +155,71 @@
     // Initialize delete handlers
     initializeDeleteHandlers();
 </script>
+
+<style>
+    .pagination-container {
+        margin-top: 2rem;
+    }
+
+    .pagination {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    /* Page number buttons */
+    .pagination .page-item .page-link {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 45px;
+        height: 45px;
+        padding: 0 15px;
+        border-radius: 12px;
+        color: #333;
+        font-weight: 500;
+        border: none;
+        background-color: #f0f0f0;
+        transition: all 0.2s ease;
+        text-decoration: none;
+    }
+    
+    .pagination .page-item.active .page-link {
+        background-color: #0d1421;
+        color: white;
+    }
+    
+    /* Previous/Next buttons */
+    .pagination .page-item:first-child .page-link,
+    .pagination .page-item:last-child .page-link {
+        background-color: transparent;
+        color: #666;
+        font-weight: 400;
+        padding: 0 10px;
+    }
+
+    .pagination .page-item:first-child.disabled .page-link,
+    .pagination .page-item:last-child.disabled .page-link {
+        color: #ccc;
+        opacity: 0.6;
+    }
+    
+    .pagination .page-item:first-child .page-link span,
+    .pagination .page-item:last-child .page-link span {
+        font-size: 1.5em;
+        line-height: 0.5;
+        margin: 0 5px;
+    }
+    
+    .pagination .page-item:not(.active):not(.disabled) .page-link:hover {
+        background-color: #e0e0e0;
+    }
+    
+    .pagination .page-item:first-child:not(.disabled) .page-link:hover,
+    .pagination .page-item:last-child:not(.disabled) .page-link:hover {
+        background-color: transparent;
+        color: #333;
+    }
+</style>
 {% endblock %} 
