@@ -128,9 +128,10 @@
                                 <tr>
                                     <th>Timestamp</th>
                                     <th>Device</th>
-                                    <th>Model</th>
                                     <th>Serial Number</th>
-                                    <th>RFID Tag</th>
+                                    <th>Location</th>
+                                    <th>Status</th>
+                                    <th>Previous Status</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -142,9 +143,30 @@
                                             {{ event.model }}
                                         </a>
                                     </td>
-                                    <td>{{ event.model }}</td>
                                     <td>{{ event.serial_number }}</td>
-                                    <td><code>{{ event.rfid_tag }}</code></td>
+                                    <td>{{ event.location_name or '-' }}</td>
+                                    <td>
+                                        <span class="badge 
+                                            {% if event.alert_status == 'In-Facility' %}bg-success
+                                            {% elif event.alert_status == 'Temporarily Out' %}bg-warning
+                                            {% elif event.alert_status == 'Missing' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ event.alert_status }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        {% if event.previous_status %}
+                                        <span class="badge 
+                                            {% if event.previous_status == 'In-Facility' %}bg-success
+                                            {% elif event.previous_status == 'Temporarily Out' %}bg-warning
+                                            {% elif event.previous_status == 'Missing' %}bg-danger
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ event.previous_status }}
+                                        </span>
+                                        {% else %}
+                                        -
+                                        {% endif %}
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>

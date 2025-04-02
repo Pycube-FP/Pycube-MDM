@@ -177,15 +177,23 @@ def events(reader_id):
         flash('Reader not found', 'error')
         return redirect(url_for('readers.index'))
     
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    events = db_service.get_reader_events(reader_id, page=page, per_page=per_page)
+    # Get pagination parameters
+    page = int(request.args.get('page', 1))
+    per_page = 20
+    offset = (page - 1) * per_page
+    
+    # Get total count for pagination
+    total_count = db_service.get_reader_events_count(reader_id)
+    total_pages = (total_count + per_page - 1) // per_page  # Ceiling division
+    
+    # Get events with pagination
+    events = db_service.get_reader_events(reader_id, limit=per_page, offset=offset)
     
     return render_template('readers/events.html',
                          reader=reader,
                          events=events,
-                         page=page,
-                         per_page=per_page)
+                         current_page=page,
+                         total_pages=total_pages)
 
 # API Endpoints
 @readers_bp.route('/api/list')
@@ -218,10 +226,26 @@ def api_events(reader_id):
     """API endpoint to get reader events"""
     try:
         db_service = DBService()
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 20, type=int)
-        events = db_service.get_reader_events(reader_id, page=page, per_page=per_page)
-        return jsonify([event.to_dict() for event in events])
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
+        offset = (page - 1) * per_page
+        
+        # Get events with pagination
+        events = db_service.get_reader_events(reader_id, limit=per_page, offset=offset)
+        
+        # Get total count for metadata
+        total_count = db_service.get_reader_events_count(reader_id)
+        total_pages = (total_count + per_page - 1) // per_page
+        
+        return jsonify({
+            'events': [event for event in events],
+            'metadata': {
+                'page': page,
+                'per_page': per_page,
+                'total_count': total_count,
+                'total_pages': total_pages
+            }
+        })
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

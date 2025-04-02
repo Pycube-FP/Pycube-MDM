@@ -2017,12 +2017,12 @@ class DBService:
             connection.close()
     
     def get_reader_statistics(self, reader_id):
-        """Get statistics for a reader"""
+        """Get statistics for a reader using rfid_alerts table"""
         connection = self.get_connection()
         cursor = connection.cursor(dictionary=True)
         
         try:
-            # First get the reader details to get reader_code and antenna_number
+            # First get the reader details to get reader information
             cursor.execute("""
                 SELECT reader_code, antenna_number, last_heartbeat, status,
                        TIMESTAMPDIFF(MINUTE, last_heartbeat, NOW()) as minutes_since_heartbeat
@@ -2039,26 +2039,26 @@ class DBService:
             # Get total events (all time)
             cursor.execute("""
                 SELECT COUNT(*) as count
-                FROM reader_events
-                WHERE reader_code = %s AND antenna_number = %s
-            """, (reader['reader_code'], reader['antenna_number']))
+                FROM rfid_alerts
+                WHERE reader_id = %s
+            """, (reader_id,))
             stats['total_events'] = cursor.fetchone()['count']
             
             # Get recent events (last 24 hours)
             cursor.execute("""
                 SELECT COUNT(*) as count
-                FROM reader_events
-                WHERE reader_code = %s AND antenna_number = %s
+                FROM rfid_alerts
+                WHERE reader_id = %s
                 AND timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-            """, (reader['reader_code'], reader['antenna_number']))
+            """, (reader_id,))
             stats['recent_events'] = cursor.fetchone()['count']
             
             # Get unique devices tracked (all time)
             cursor.execute("""
                 SELECT COUNT(DISTINCT device_id) as count
-                FROM reader_events
-                WHERE reader_code = %s AND antenna_number = %s
-            """, (reader['reader_code'], reader['antenna_number']))
+                FROM rfid_alerts
+                WHERE reader_id = %s
+            """, (reader_id,))
             stats['devices_tracked'] = cursor.fetchone()['count']
             
             # Calculate uptime percentage based on heartbeat
@@ -2077,36 +2077,56 @@ class DBService:
             cursor.close()
             connection.close()
     
-    def get_reader_events(self, reader_id, limit=10):
-        """Get recent events for a reader"""
+    def get_reader_events(self, reader_id, limit=10, offset=0):
+        """Get recent events for a reader from rfid_alerts table with pagination"""
         connection = self.get_connection()
         cursor = connection.cursor(dictionary=True)
         
         try:
-            # First get the reader details
-            cursor.execute("""
-                SELECT reader_code, antenna_number
-                FROM readers
-                WHERE id = %s
-            """, (reader_id,))
-            reader = cursor.fetchone()
-            
-            if not reader:
-                raise Exception(f"Reader with id {reader_id} not found")
-            
             query = """
-                SELECT re.*, d.model, d.serial_number
-                FROM reader_events re
-                LEFT JOIN devices d ON re.device_id = d.id
-                WHERE re.reader_code = %s AND re.antenna_number = %s
-                ORDER BY re.timestamp DESC
-                LIMIT %s
+                SELECT 
+                    ra.id,
+                    ra.timestamp,
+                    ra.device_id,
+                    ra.location_id,
+                    ra.status as alert_status,
+                    ra.previous_status,
+                    d.model,
+                    d.serial_number,
+                    d.rfid_tag,
+                    l.name as location_name
+                FROM rfid_alerts ra
+                LEFT JOIN devices d ON ra.device_id = d.id
+                LEFT JOIN locations l ON ra.location_id = l.id
+                WHERE ra.reader_id = %s
+                ORDER BY ra.timestamp DESC
+                LIMIT %s OFFSET %s
             """
-            cursor.execute(query, (reader['reader_code'], reader['antenna_number'], limit))
+            cursor.execute(query, (reader_id, limit, offset))
             return cursor.fetchall()
         except Exception as e:
             print(f"Error retrieving reader events: {e}")
             raise
+        finally:
+            cursor.close()
+            connection.close()
+            
+    def get_reader_events_count(self, reader_id):
+        """Get the total count of events for a reader"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = """
+                SELECT COUNT(*) 
+                FROM rfid_alerts
+                WHERE reader_id = %s
+            """
+            cursor.execute(query, (reader_id,))
+            return cursor.fetchone()[0]
+        except Exception as e:
+            print(f"Error counting reader events: {e}")
+            return 0
         finally:
             cursor.close()
             connection.close()
