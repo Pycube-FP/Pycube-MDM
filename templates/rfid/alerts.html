@@ -247,67 +247,83 @@
         background-color: rgba(0, 0, 0, 0.05);
     }
     
+    /* Status filters */
     .status-filters {
         margin-bottom: 2rem;
     }
     
-    .status-filter-card {
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-    
-    .status-filter-card:hover {
-        transform: translateY(-3px);
-    }
-    
-    .status-filter-card .card {
-        transition: all 0.2s ease;
-        height: 100%;
-    }
-    
-    .status-filter-card .card-body {
-        height: 100%;
-        display: flex;
-        align-items: center;
-    }
-    
-    .status-filter-card:hover .card {
-        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
-    }
-    
-    .status-filter-card.active .card {
-        border: 2px solid;
-    }
-    
-    .status-filter-card[data-status="all"].active .card {
-        border-color: var(--bs-primary);
-    }
-    
-    .status-filter-card[data-status="Missing"].active .card {
-        border-color: var(--bs-danger);
-    }
-    
-    .status-filter-card[data-status="Temporarily Out"].active .card {
-        border-color: var(--bs-warning);
-    }
-    
-    .status-filter-card[data-status="In-Facility"].active .card {
-        border-color: var(--bs-success);
-    }
-    
-    /* Equal height cards */
-    .status-filters .row {
+    /* New button-style filters */
+    .status-filter-buttons {
         display: flex;
         flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
     }
     
-    .status-filters .col-md-3 {
+    .status-filter-btn {
         display: flex;
-        flex: 0 0 25%;
+        align-items: center;
+        padding: 6px 12px;
+        border-radius: 20px;
+        background-color: #f0f0f0;
+        color: #333;
+        text-decoration: none;
+        transition: all 0.2s ease;
+        border: 1px solid #e0e0e0;
+        font-size: 0.875rem;
     }
     
-    .status-filter-card {
-        width: 100%;
+    .status-filter-btn:hover {
+        background-color: #e0e0e0;
+        text-decoration: none;
+        color: #333;
+    }
+    
+    .status-filter-btn.active {
+        border-color: var(--primary-color);
+        background-color: rgba(1, 4, 46, 0.05);
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .icon-circle {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background-color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 6px;
+        flex-shrink: 0;
+        font-size: 0.75rem;
+    }
+    
+    .icon-circle.success {
+        background-color: var(--success-color);
+        color: white;
+    }
+    
+    .icon-circle.warning {
+        background-color: var(--warning-color);
+        color: white;
+    }
+    
+    .icon-circle.danger {
+        background-color: var(--alert-color);
+        color: white;
+    }
+    
+    .icon-circle.info {
+        background-color: var(--info-color);
+        color: white;
+    }
+    
+    .status-filter-btn span {
+        font-weight: 500;
+    }
+    
+    .status-filter-btn .badge {
+        margin-left: 8px;
     }
 </style>
 {% endblock %}
@@ -343,75 +359,49 @@
         </form>
     </div>
 
-    <!-- Status Filter Cards -->
-    <div class="status-filters mb-4">
-        <div class="row g-3">
-            <div class="col-12">
-                <h5 class="mb-3"><i class="fas fa-filter me-2"></i>Filter by Status</h5>
+    <!-- Status Filters -->
+    <div class="status-filters mb-3">
+        <div class="row">
+            <div class="col-12 mb-2">
+                <h5><i class="fas fa-filter me-2"></i>Filter by Status</h5>
             </div>
-            <div class="col-md-3">
-                <div class="status-filter-card" data-status="all">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body d-flex align-items-center">
-                            <i class="fas fa-list-ul me-3 text-primary" style="font-size: 1.5rem;"></i>
-                            <div>
-                                <h6 class="mb-1">All Alerts</h6>
-                                <p class="small text-muted mb-0">All status types</p>
-                            </div>
-                            <div class="ms-auto">
-                                <span class="badge bg-primary rounded-pill">{{ total_alerts }}</span>
-                            </div>
-                        </div>
+            <div class="status-filter-buttons">
+                <a href="{{ url_for('rfid.alerts', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), sort_by=sort_by, sort_dir=sort_dir) }}" 
+                   class="status-filter-btn {{ 'active' if not selected_status else '' }}" 
+                   data-status="all">
+                    <div class="icon-circle info">
+                        <i class="fas fa-list-ul"></i>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="status-filter-card" data-status="Missing">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body d-flex align-items-center">
-                            <i class="fas fa-exclamation-triangle me-3 text-danger" style="font-size: 1.5rem;"></i>
-                            <div>
-                                <h6 class="mb-1">Missing</h6>
-                                <p class="small text-muted mb-0">Not returned in time</p>
-                            </div>
-                            <div class="ms-auto">
-                                <span class="badge bg-danger rounded-pill">{{ status_counts.Missing|default(0) }}</span>
-                            </div>
-                        </div>
+                    <span>All Alerts</span>
+                    <span class="badge bg-primary rounded-pill">{{ total_alerts }}</span>
+                </a>
+                <a href="{{ url_for('rfid.alerts', status='Missing', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), sort_by=sort_by, sort_dir=sort_dir) }}" 
+                   class="status-filter-btn {{ 'active' if selected_status == 'Missing' else '' }}" 
+                   data-status="Missing">
+                    <div class="icon-circle danger">
+                        <i class="fas fa-question"></i>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="status-filter-card" data-status="Temporarily Out">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body d-flex align-items-center">
-                            <i class="fas fa-sign-out-alt me-3 text-warning" style="font-size: 1.5rem;"></i>
-                            <div>
-                                <h6 class="mb-1">Temporarily Out</h6>
-                                <p class="small text-muted mb-0">Outside facility</p>
-                            </div>
-                            <div class="ms-auto">
-                                <span class="badge bg-warning rounded-pill">{{ status_counts['Temporarily Out']|default(0) }}</span>
-                            </div>
-                        </div>
+                    <span>Missing</span>
+                    <span class="badge bg-danger rounded-pill">{{ status_counts.Missing|default(0) }}</span>
+                </a>
+                <a href="{{ url_for('rfid.alerts', status='Temporarily Out', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), sort_by=sort_by, sort_dir=sort_dir) }}" 
+                   class="status-filter-btn {{ 'active' if selected_status == 'Temporarily Out' else '' }}" 
+                   data-status="Temporarily Out">
+                    <div class="icon-circle warning">
+                        <i class="fas fa-clock"></i>
                     </div>
-                </div>
-            </div>
-            <div class="col-md-3">
-                <div class="status-filter-card" data-status="In-Facility">
-                    <div class="card h-100 border-0 shadow-sm">
-                        <div class="card-body d-flex align-items-center">
-                            <i class="fas fa-check-circle me-3 text-success" style="font-size: 1.5rem;"></i>
-                            <div>
-                                <h6 class="mb-1">In-Facility</h6>
-                                <p class="small text-muted mb-0">Currently in facility</p>
-                            </div>
-                            <div class="ms-auto">
-                                <span class="badge bg-success rounded-pill">{{ status_counts['In-Facility']|default(0) }}</span>
-                            </div>
-                        </div>
+                    <span>Temporarily Out</span>
+                    <span class="badge bg-warning rounded-pill">{{ status_counts['Temporarily Out']|default(0) }}</span>
+                </a>
+                <a href="{{ url_for('rfid.alerts', status='In-Facility', start_date=request.args.get('start_date'), end_date=request.args.get('end_date'), sort_by=sort_by, sort_dir=sort_dir) }}" 
+                   class="status-filter-btn {{ 'active' if selected_status == 'In-Facility' else '' }}" 
+                   data-status="In-Facility">
+                    <div class="icon-circle success">
+                        <i class="fas fa-check"></i>
                     </div>
-                </div>
+                    <span>In-Facility</span>
+                    <span class="badge bg-success rounded-pill">{{ status_counts['In-Facility']|default(0) }}</span>
+                </a>
             </div>
         </div>
     </div>
@@ -523,7 +513,7 @@
             const params = new URLSearchParams(formData);
             
             // Add status parameter if a filter is active
-            const activeFilter = document.querySelector('.status-filter-card.active');
+            const activeFilter = document.querySelector('.status-filter-btn.active');
             if (activeFilter && activeFilter.dataset.status !== 'all') {
                 params.append('status', activeFilter.dataset.status);
             }
@@ -551,61 +541,6 @@
                 const currentUrl = new URL(window.location.href);
                 currentUrl.searchParams.set('sort_by', sortBy);
                 currentUrl.searchParams.set('sort_dir', sortDir);
-                window.location.href = currentUrl.toString();
-            });
-        });
-        
-        // Status filter cards functionality
-        const statusFilterCards = document.querySelectorAll('.status-filter-card');
-        
-        // Mark the active filter card
-        const selectedStatus = '{{ selected_status }}' || 'all';
-        const activeCard = document.querySelector(`.status-filter-card[data-status="${selectedStatus}"]`) || 
-                           document.querySelector('.status-filter-card[data-status="all"]');
-        
-        if (activeCard) {
-            activeCard.classList.add('active');
-        }
-        
-        // Add click event listeners to filter cards
-        statusFilterCards.forEach(card => {
-            card.addEventListener('click', function() {
-                // Remove active class from all cards
-                statusFilterCards.forEach(c => c.classList.remove('active'));
-                
-                // Add active class to clicked card
-                this.classList.add('active');
-                
-                const selectedStatus = this.dataset.status;
-                const currentUrl = new URL(window.location.href);
-                
-                if (selectedStatus === 'all') {
-                    // Remove status parameter for "All" filter
-                    currentUrl.searchParams.delete('status');
-                } else {
-                    // Add/update status parameter
-                    currentUrl.searchParams.set('status', selectedStatus);
-                }
-                
-                // Preserve date range if set
-                const startDate = startDateInput.value;
-                const endDate = endDateInput.value;
-                
-                if (startDate) {
-                    currentUrl.searchParams.set('start_date', startDate);
-                }
-                
-                if (endDate) {
-                    currentUrl.searchParams.set('end_date', endDate);
-                }
-                
-                // Preserve sorting if set
-                if ('{{ sort_by }}') {
-                    currentUrl.searchParams.set('sort_by', '{{ sort_by }}');
-                    currentUrl.searchParams.set('sort_dir', '{{ sort_dir }}');
-                }
-                
-                // Navigate to filtered URL
                 window.location.href = currentUrl.toString();
             });
         });
