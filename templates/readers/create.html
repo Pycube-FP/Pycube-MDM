@@ -110,13 +110,13 @@
         
         <hr style="margin: var(--spacing-lg) 0;">
         
-        <div style="display: flex; justify-content: flex-end; gap: var(--spacing-md);">
-            {% if hospital_id %}
-                <a href="{{ url_for('hospitals.readers', hospital_id=hospital_id) }}" class="btn btn-info">Cancel</a>
-            {% else %}
-                <a href="{{ url_for('readers.index') }}" class="btn btn-info">Cancel</a>
-            {% endif %}
+        <div class="d-flex justify-content-center gap-3 mt-4">
             <button type="submit" class="btn btn-primary">Add Reader</button>
+            {% if hospital_id %}
+                <a href="{{ url_for('hospitals.readers', hospital_id=hospital_id) }}" class="btn btn-secondary">Cancel</a>
+            {% else %}
+                <a href="{{ url_for('readers.index') }}" class="btn btn-secondary">Cancel</a>
+            {% endif %}
         </div>
     </form>
 </div>
