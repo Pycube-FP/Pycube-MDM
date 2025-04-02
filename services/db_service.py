@@ -826,7 +826,7 @@ class DBService:
             cursor.close()
             connection.close()
 
-    def get_rfid_alerts(self, limit=None, offset=None, sort_by=None, sort_dir='asc', device_id=None, start_date=None, end_date=None):
+    def get_rfid_alerts(self, limit=None, offset=None, sort_by=None, sort_dir='asc', device_id=None, status=None, start_date=None, end_date=None):
         """Get RFID alerts with optional filtering and sorting"""
         try:
             conn = self.get_connection()
@@ -850,6 +850,10 @@ class DBService:
             if device_id:
                 query += " AND a.device_id = %s"
                 params.append(device_id)
+
+            if status:
+                query += " AND a.status = %s"
+                params.append(status)
                 
             if start_date:
                 query += " AND a.timestamp >= %s"
@@ -860,13 +864,15 @@ class DBService:
                 params.append(end_date)
             
             # Add sorting if provided
-            valid_sort_columns = ['timestamp', 'device_name', 'location_name']
+            valid_sort_columns = ['timestamp', 'device_name', 'location_name', 'alert_status']
             if sort_by in valid_sort_columns:
                 sort_dir = sort_dir.upper() if sort_dir.upper() in ['ASC', 'DESC'] else 'ASC'
                 if sort_by == 'device_name':
                     query += f" ORDER BY d.model {sort_dir}"
                 elif sort_by == 'location_name':
                     query += f" ORDER BY l.name {sort_dir}"
+                elif sort_by == 'alert_status':
+                    query += f" ORDER BY a.status {sort_dir}"
                 else:
                     query += f" ORDER BY a.{sort_by} {sort_dir}"
             else:
@@ -893,6 +899,96 @@ class DBService:
         except Exception as e:
             print(f"Error getting RFID alerts: {str(e)}")
             return []
+
+    def get_rfid_alerts_count(self, device_id=None, status=None, start_date=None, end_date=None):
+        """Get count of RFID alerts with optional filtering"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            # Build the query
+            query = """
+                SELECT COUNT(*) as total
+                FROM rfid_alerts a
+                WHERE 1=1
+            """
+            
+            # Initialize parameters list
+            params = []
+            
+            # Add filters if provided
+            if device_id:
+                query += " AND a.device_id = %s"
+                params.append(device_id)
+                
+            if status:
+                query += " AND a.status = %s"
+                params.append(status)
+                
+            if start_date:
+                query += " AND a.timestamp >= %s"
+                params.append(start_date)
+                
+            if end_date:
+                query += " AND a.timestamp <= %s"
+                params.append(end_date)
+            
+            cursor.execute(query, tuple(params))
+            result = cursor.fetchone()
+            total = result['total'] if result else 0
+            
+            cursor.close()
+            conn.close()
+            
+            return total
+            
+        except Exception as e:
+            print(f"Error getting RFID alerts count: {str(e)}")
+            return 0
+    
+    def get_rfid_alerts_status_counts(self, start_date=None, end_date=None):
+        """Get counts of RFID alerts grouped by status"""
+        try:
+            conn = self.get_connection()
+            cursor = conn.cursor(dictionary=True)
+            
+            # Build the query
+            query = """
+                SELECT status, COUNT(*) as count
+                FROM rfid_alerts a
+                WHERE 1=1
+            """
+            
+            # Initialize parameters list
+            params = []
+            
+            # Add time filters if provided
+            if start_date:
+                query += " AND a.timestamp >= %s"
+                params.append(start_date)
+                
+            if end_date:
+                query += " AND a.timestamp <= %s"
+                params.append(end_date)
+                
+            query += " GROUP BY status"
+            
+            cursor.execute(query, tuple(params))
+            results = cursor.fetchall()
+            
+            # Convert to dictionary format for easy access in template
+            status_counts = {}
+            for row in results:
+                status_counts[row['status']] = row['count']
+            
+            cursor.close()
+            conn.close()
+            
+            return status_counts
+            
+        except Exception as e:
+            print(f"Error getting RFID alerts status counts: {str(e)}")
+            return {}
 
     def create_rfid_alert(self, alert):
         """Create a new RFID alert"""
@@ -1967,29 +2063,6 @@ class DBService:
         finally:
             cursor.close()
             connection.close()
-
-    def get_rfid_alerts_count(self):
-        """Get total count of RFID alerts"""
-        try:
-            conn = self.get_connection()
-            cursor = conn.cursor()
-            
-            query = """
-                SELECT COUNT(*) 
-                FROM rfid_alerts
-            """
-            
-            cursor.execute(query)
-            count = cursor.fetchone()[0]
-            
-            cursor.close()
-            conn.close()
-            
-            return count
-            
-        except Exception as e:
-            print(f"Error getting RFID alerts count: {str(e)}")
-            return 0
 
     def get_rfid_alert(self, alert_id):
         """Get detailed information about a specific RFID alert"""

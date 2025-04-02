@@ -22,20 +22,49 @@ def alerts():
     sort_by = request.args.get('sort_by')
     sort_dir = request.args.get('sort_dir', 'asc')
     
-    # Get alerts with pagination
-    offset = (page - 1) * per_page
-    alerts = db_service.get_rfid_alerts(limit=per_page, offset=offset, sort_by=sort_by, sort_dir=sort_dir)
+    # Get status filter
+    status = request.args.get('status')
     
-    # Get total count for pagination
-    total_alerts = db_service.get_rfid_alerts_count()
+    # Get date range filters
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    
+    # Get alerts with pagination and filters
+    offset = (page - 1) * per_page
+    alerts = db_service.get_rfid_alerts(
+        limit=per_page, 
+        offset=offset, 
+        sort_by=sort_by, 
+        sort_dir=sort_dir,
+        status=status,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
+    # Get total count for pagination (with filters applied)
+    total_alerts = db_service.get_rfid_alerts_count(
+        status=status,
+        start_date=start_date,
+        end_date=end_date
+    )
+    
     total_pages = math.ceil(total_alerts / per_page)
+    
+    # Get counts for each status type for the filter cards
+    status_counts = db_service.get_rfid_alerts_status_counts(
+        start_date=start_date,
+        end_date=end_date
+    )
     
     return render_template('rfid/alerts.html', 
                          alerts=alerts,
                          current_page=page,
                          total_pages=total_pages,
+                         total_alerts=total_alerts,
+                         status_counts=status_counts,
                          sort_by=sort_by,
-                         sort_dir=sort_dir)
+                         sort_dir=sort_dir,
+                         selected_status=status)
 
 @rfid_bp.route('/api/alerts', methods=['GET'])
 @login_required
