@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "components/table.html" import render_table, render_actions, render_status_badge %}
+{% from "components/table.html" import render_table, render_actions, render_status_badge, render_pagination %}
 
 {% block title %}RFID Readers - Pycube MDM{% endblock %}
 
@@ -53,5 +53,17 @@
         </tr>
         {% endfor %}
     {% endcall %}
+    
+    {% if total_pages > 1 %}
+    <div class="pagination-container">
+        {{ render_pagination(
+            current_page=current_page,
+            total_pages=total_pages,
+            base_url=url_for('readers.index'),
+            sort_by=sort_by,
+            sort_dir=sort_dir
+        ) }}
+    </div>
+    {% endif %}
 </div>
 {% endblock %} 

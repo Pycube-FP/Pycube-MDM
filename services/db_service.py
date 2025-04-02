@@ -1890,8 +1890,8 @@ class DBService:
             cursor.close()
             connection.close()
     
-    def get_all_readers(self, sort_by=None, sort_dir='asc'):
-        """Get all readers with optional sorting"""
+    def get_all_readers(self, limit=None, offset=None, sort_by=None, sort_dir='asc'):
+        """Get all readers with optional sorting and pagination"""
         connection = self.get_connection()
         cursor = connection.cursor(dictionary=True)
         
@@ -1922,11 +1922,39 @@ class DBService:
             else:
                 query += " ORDER BY created_at DESC"
             
-            cursor.execute(query)
+            # Add pagination if limit is provided
+            if limit is not None:
+                query += " LIMIT %s"
+                params = [limit]
+                
+                if offset is not None:
+                    query += " OFFSET %s"
+                    params.append(offset)
+                
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
             result = cursor.fetchall()
             return result
         except Exception as e:
             print(f"Error retrieving readers: {e}")
+            raise
+        finally:
+            cursor.close()
+            connection.close()
+            
+    def get_reader_count(self):
+        """Get the total count of readers"""
+        connection = self.get_connection()
+        cursor = connection.cursor()
+        
+        try:
+            query = "SELECT COUNT(*) FROM readers"
+            cursor.execute(query)
+            return cursor.fetchone()[0]
+        except Exception as e:
+            print(f"Error counting readers: {e}")
             raise
         finally:
             cursor.close()

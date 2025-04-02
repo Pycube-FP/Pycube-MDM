@@ -17,11 +17,30 @@ def index():
     sort_by = request.args.get('sort_by')
     sort_dir = request.args.get('sort_dir', 'asc')
     
-    readers = db_service.get_all_readers(sort_by=sort_by, sort_dir=sort_dir)
-    return render_template('readers/index.html', 
-                         readers=readers,
-                         sort_by=sort_by,
-                         sort_dir=sort_dir)
+    # Get pagination parameters
+    page = int(request.args.get('page', 1))
+    limit = 10
+    offset = (page - 1) * limit
+    
+    # Get total count and calculate total pages
+    total_count = db_service.get_reader_count()
+    total_pages = (total_count + limit - 1) // limit  # Ceiling division
+    
+    readers = db_service.get_all_readers(
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        sort_dir=sort_dir
+    )
+    
+    return render_template(
+        'readers/index.html', 
+        readers=readers,
+        current_page=page,
+        total_pages=total_pages,
+        sort_by=sort_by,
+        sort_dir=sort_dir
+    )
 
 @readers_bp.route('/create', methods=['GET', 'POST'])
 @role_required(['admin'])
