@@ -379,12 +379,13 @@ class DBService:
             # Add sorting if valid column is provided
             if sort_by and sort_by in valid_sort_columns:
                 sort_dir = sort_dir.upper() if sort_dir.lower() in ['asc', 'desc'] else 'ASC'
-                query += f" ORDER BY {valid_sort_columns[sort_by]} {sort_dir}"
+                query += f" ORDER BY {valid_sort_columns[sort_by]} {sort_dir}, id ASC"
             else:
-                query += " ORDER BY created_at DESC"
+                query += " ORDER BY created_at DESC, id ASC"
             
+            # Important: Add LIMIT and OFFSET for pagination
             query += " LIMIT %s OFFSET %s"
-            params.extend([limit, offset])
+            params.extend([int(limit), int(offset)])
             
             cursor.execute(query, params)
             result = cursor.fetchall()
