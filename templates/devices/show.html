@@ -448,7 +448,7 @@
                     </td>
                     <td>
                         {% if movement.status_transition %}
-                            <span class="badge {% if 'Missing' in movement.status_transition %}bg-danger
+                            <span class="badge {% if 'Missing' in movement.status_transition and 'Missing → In-Facility' not in movement.status_transition %}bg-danger
                                      {% elif 'In-Facility' in movement.status_transition and '→' not in movement.status_transition %}bg-success
                                      {% elif 'In-Facility → Temporarily Out' in movement.status_transition %}bg-warning
                                      {% elif 'Temporarily Out → In-Facility' in movement.status_transition %}bg-success
