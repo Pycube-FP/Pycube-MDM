@@ -254,6 +254,27 @@
             </div>
         </div>
         
+        <!-- Temporarily Out Devices -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: #f59e0b;">
+                    <i class="fas fa-sign-out-alt"></i>
+                </div>
+                <div class="stat-title">Temporarily Out</div>
+            </div>
+            <div class="stat-value">{{ stats.temp_out_count }}</div>
+            <div class="stat-trend">
+                <i class="fas fa-clock"></i>
+                <span>
+                    {% if stats.total_count > 0 %}
+                        {{ (stats.temp_out_count / stats.total_count * 100)|round(1) }}% of Total
+                    {% else %}
+                        0% of Total
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        
         <!-- In-Facility Devices -->
         <div class="stat-card">
             <div class="stat-header">
@@ -286,6 +307,41 @@
             <div class="stat-value">{{ stats.movement_counts[-1].count if stats.movement_counts else 0 }}</div>
             <div class="stat-trend">
                 <span>Last 24 Hours</span>
+            </div>
+        </div>
+        
+        <!-- Recent Alerts -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: #fd7e14;">
+                    <i class="fas fa-bell"></i>
+                </div>
+                <div class="stat-title">Recent Alerts</div>
+            </div>
+            <div class="stat-value">{{ stats.recent_alerts }}</div>
+            <div class="stat-trend">
+                <i class="fas fa-history"></i>
+                <span>Last 24 Hours</span>
+            </div>
+        </div>
+        
+        <!-- Assigned Devices -->
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon" style="background: #0dcaf0;">
+                    <i class="fas fa-user-check"></i>
+                </div>
+                <div class="stat-title">Assigned Devices</div>
+            </div>
+            <div class="stat-value">{{ stats.assigned_count }}</div>
+            <div class="stat-trend">
+                <span>
+                    {% if stats.total_count > 0 %}
+                        {{ (stats.assigned_count / stats.total_count * 100)|round(1) }}% of Total
+                    {% else %}
+                        0% of Total
+                    {% endif %}
+                </span>
             </div>
         </div>
     </div>
@@ -336,19 +392,19 @@
         const statusData = [
             {{ stats.status_counts.get('In-Facility', 0) }},
             {{ stats.status_counts.get('Missing', 0) }},
-            {{ stats.status_counts.get('Maintenance', 0) }}
+            {{ stats.temp_out_count }}
         ];
         
         // Only create chart if there's data
         const statusChart = new Chart(statusCtx, {
             type: 'doughnut',
             data: {
-                labels: ['In-Facility', 'Missing', 'Maintenance'],
+                labels: ['In-Facility', 'Missing', 'Temporarily Out'],
                 datasets: [{
                     data: statusData.every(val => val === 0) ? [1] : statusData,  // Show empty chart if no data
                     backgroundColor: statusData.every(val => val === 0) ? 
                         ['#e9ecef'] :  // Gray color for empty chart
-                        ['#28a745', '#dc3545', '#ffc107'],
+                        ['#28a745', '#dc3545', '#f59e0b'],
                     borderWidth: 0
                 }]
             },

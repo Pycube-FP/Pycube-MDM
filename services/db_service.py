@@ -791,6 +791,13 @@ class DBService:
             
             stats['status_counts'] = status_data
             
+            # Count temporarily out devices
+            temp_out_query = "SELECT COUNT(*) as count FROM devices WHERE status = 'Temporarily Out'"
+            cursor.execute(temp_out_query)
+            temp_out_count = cursor.fetchone()
+            
+            stats['temp_out_count'] = temp_out_count['count'] if temp_out_count else 0
+            
             # Count movements by day (last 7 days)
             movement_query = """
                 SELECT DATE(timestamp) as date, COUNT(*) as count 
@@ -803,6 +810,17 @@ class DBService:
             movement_counts = cursor.fetchall()
             
             stats['movement_counts'] = movement_counts
+            
+            # Count recent alerts (last 24 hours)
+            alerts_query = """
+                SELECT COUNT(*) as count 
+                FROM rfid_alerts 
+                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            """
+            cursor.execute(alerts_query)
+            recent_alerts = cursor.fetchone()
+            
+            stats['recent_alerts'] = recent_alerts['count'] if recent_alerts else 0
             
             # Count missing devices
             missing_query = "SELECT COUNT(*) as count FROM devices WHERE status = 'Missing'"
@@ -817,6 +835,17 @@ class DBService:
             total_count = cursor.fetchone()
             
             stats['total_count'] = total_count['count'] if total_count else 0
+            
+            # Device assignments count
+            assignment_query = """
+                SELECT COUNT(*) as count 
+                FROM device_assignments 
+                WHERE returned_at IS NULL
+            """
+            cursor.execute(assignment_query)
+            assignments = cursor.fetchone()
+            
+            stats['assigned_count'] = assignments['count'] if assignments else 0
             
             return stats
         except Exception as e:
@@ -857,10 +886,16 @@ class DBService:
                 
             if start_date:
                 query += " AND a.timestamp >= %s"
+                # Ensure start date is at the beginning of the day
+                if len(start_date) == 10:  # If only date is provided (YYYY-MM-DD)
+                    start_date = f"{start_date} 00:00:00"
                 params.append(start_date)
                 
             if end_date:
                 query += " AND a.timestamp <= %s"
+                # Ensure end date is at the end of the day
+                if len(end_date) == 10:  # If only date is provided (YYYY-MM-DD)
+                    end_date = f"{end_date} 23:59:59"
                 params.append(end_date)
             
             # Add sorting if provided
@@ -927,10 +962,16 @@ class DBService:
                 
             if start_date:
                 query += " AND a.timestamp >= %s"
+                # Ensure start date is at the beginning of the day
+                if len(start_date) == 10:  # If only date is provided (YYYY-MM-DD)
+                    start_date = f"{start_date} 00:00:00"
                 params.append(start_date)
                 
             if end_date:
                 query += " AND a.timestamp <= %s"
+                # Ensure end date is at the end of the day
+                if len(end_date) == 10:  # If only date is provided (YYYY-MM-DD)
+                    end_date = f"{end_date} 23:59:59"
                 params.append(end_date)
             
             cursor.execute(query, tuple(params))
@@ -965,10 +1006,16 @@ class DBService:
             # Add time filters if provided
             if start_date:
                 query += " AND a.timestamp >= %s"
+                # Ensure start date is at the beginning of the day
+                if len(start_date) == 10:  # If only date is provided (YYYY-MM-DD)
+                    start_date = f"{start_date} 00:00:00"
                 params.append(start_date)
                 
             if end_date:
                 query += " AND a.timestamp <= %s"
+                # Ensure end date is at the end of the day
+                if len(end_date) == 10:  # If only date is provided (YYYY-MM-DD)
+                    end_date = f"{end_date} 23:59:59"
                 params.append(end_date)
                 
             query += " GROUP BY status"

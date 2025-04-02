@@ -262,6 +262,13 @@
     
     .status-filter-card .card {
         transition: all 0.2s ease;
+        height: 100%;
+    }
+    
+    .status-filter-card .card-body {
+        height: 100%;
+        display: flex;
+        align-items: center;
     }
     
     .status-filter-card:hover .card {
@@ -286,6 +293,21 @@
     
     .status-filter-card[data-status="In-Facility"].active .card {
         border-color: var(--bs-success);
+    }
+    
+    /* Equal height cards */
+    .status-filters .row {
+        display: flex;
+        flex-wrap: wrap;
+    }
+    
+    .status-filters .col-md-3 {
+        display: flex;
+        flex: 0 0 25%;
+    }
+    
+    .status-filter-card {
+        width: 100%;
     }
 </style>
 {% endblock %}
@@ -314,7 +336,8 @@
                     <input type="date" class="form-control" id="endDate" name="end_date">
                 </div>
                 <div class="col-md-4 d-flex align-items-end">
-                    <button type="submit" class="btn btn-dark">Apply Filters</button>
+                    <button type="submit" class="btn btn-dark me-2">Apply Filters</button>
+                    <a href="{{ url_for('rfid.alerts') }}" class="btn btn-secondary" id="clearFilters">Clear Filters</a>
                 </div>
             </div>
         </form>
@@ -333,7 +356,7 @@
                             <i class="fas fa-list-ul me-3 text-primary" style="font-size: 1.5rem;"></i>
                             <div>
                                 <h6 class="mb-1">All Alerts</h6>
-                                <p class="small text-muted mb-0">Show all status types</p>
+                                <p class="small text-muted mb-0">All status types</p>
                             </div>
                             <div class="ms-auto">
                                 <span class="badge bg-primary rounded-pill">{{ total_alerts }}</span>
@@ -349,7 +372,7 @@
                             <i class="fas fa-exclamation-triangle me-3 text-danger" style="font-size: 1.5rem;"></i>
                             <div>
                                 <h6 class="mb-1">Missing</h6>
-                                <p class="small text-muted mb-0">Devices not returned in time</p>
+                                <p class="small text-muted mb-0">Not returned in time</p>
                             </div>
                             <div class="ms-auto">
                                 <span class="badge bg-danger rounded-pill">{{ status_counts.Missing|default(0) }}</span>
@@ -365,7 +388,7 @@
                             <i class="fas fa-sign-out-alt me-3 text-warning" style="font-size: 1.5rem;"></i>
                             <div>
                                 <h6 class="mb-1">Temporarily Out</h6>
-                                <p class="small text-muted mb-0">Devices that left the facility</p>
+                                <p class="small text-muted mb-0">Outside facility</p>
                             </div>
                             <div class="ms-auto">
                                 <span class="badge bg-warning rounded-pill">{{ status_counts['Temporarily Out']|default(0) }}</span>
@@ -381,7 +404,7 @@
                             <i class="fas fa-check-circle me-3 text-success" style="font-size: 1.5rem;"></i>
                             <div>
                                 <h6 class="mb-1">In-Facility</h6>
-                                <p class="small text-muted mb-0">Devices currently in facility</p>
+                                <p class="small text-muted mb-0">Currently in facility</p>
                             </div>
                             <div class="ms-auto">
                                 <span class="badge bg-success rounded-pill">{{ status_counts['In-Facility']|default(0) }}</span>
@@ -447,14 +470,52 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const filterForm = document.getElementById('filterForm');
+        const startDateInput = document.getElementById('startDate');
+        const endDateInput = document.getElementById('endDate');
+        const clearFiltersBtn = document.getElementById('clearFilters');
         
-        // Initialize date inputs with current date range
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today);
-        thirtyDaysAgo.setDate(today.getDate() - 30);
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const startDateParam = urlParams.get('start_date');
+        const endDateParam = urlParams.get('end_date');
+        
+        // Set date inputs based on URL parameters if they exist, otherwise use defaults
+        if (startDateParam) {
+            startDateInput.value = startDateParam;
+        } else {
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+            startDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+        }
+        
+        if (endDateParam) {
+            endDateInput.value = endDateParam;
+        } else {
+            const today = new Date();
+            endDateInput.value = today.toISOString().split('T')[0];
+        }
 
-        document.getElementById('startDate').value = thirtyDaysAgo.toISOString().split('T')[0];
-        document.getElementById('endDate').value = today.toISOString().split('T')[0];
+        // Enhance clear filters to retain any sorting while clearing filters
+        clearFiltersBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            
+            // Get current URL and maintain only sort parameters if they exist
+            const currentUrl = new URL(window.location.href);
+            const newParams = new URLSearchParams();
+            
+            // Preserve sorting if set
+            if ('{{ sort_by }}') {
+                newParams.set('sort_by', '{{ sort_by }}');
+                newParams.set('sort_dir', '{{ sort_dir }}');
+            }
+            
+            // Navigate to filtered URL
+            if (newParams.toString()) {
+                window.location.href = `${currentUrl.pathname}?${newParams.toString()}`;
+            } else {
+                window.location.href = currentUrl.pathname;
+            }
+        });
 
         filterForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -486,7 +547,7 @@
                     sortDir = '{{ sort_dir }}' === 'asc' ? 'desc' : 'asc';
                 }
                 
-                // Redirect with sort parameters
+                // Redirect with sort parameters while preserving other params
                 const currentUrl = new URL(window.location.href);
                 currentUrl.searchParams.set('sort_by', sortBy);
                 currentUrl.searchParams.set('sort_dir', sortDir);
@@ -496,11 +557,6 @@
         
         // Status filter cards functionality
         const statusFilterCards = document.querySelectorAll('.status-filter-card');
-        const tableRows = document.querySelectorAll('tbody tr');
-        
-        // Check URL for status parameter to activate the correct filter
-        const urlParams = new URLSearchParams(window.location.search);
-        const statusParam = urlParams.get('status');
         
         // Mark the active filter card
         const selectedStatus = '{{ selected_status }}' || 'all';
@@ -532,8 +588,8 @@
                 }
                 
                 // Preserve date range if set
-                const startDate = document.getElementById('startDate').value;
-                const endDate = document.getElementById('endDate').value;
+                const startDate = startDateInput.value;
+                const endDate = endDateInput.value;
                 
                 if (startDate) {
                     currentUrl.searchParams.set('start_date', startDate);
@@ -541,6 +597,12 @@
                 
                 if (endDate) {
                     currentUrl.searchParams.set('end_date', endDate);
+                }
+                
+                // Preserve sorting if set
+                if ('{{ sort_by }}') {
+                    currentUrl.searchParams.set('sort_by', '{{ sort_by }}');
+                    currentUrl.searchParams.set('sort_dir', '{{ sort_dir }}');
                 }
                 
                 // Navigate to filtered URL

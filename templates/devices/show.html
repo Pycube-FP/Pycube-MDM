@@ -187,6 +187,25 @@
         grid-template-columns: repeat(2, 1fr);
         gap: var(--spacing-md);
     }
+    
+    /* Movement History Styles */
+    .movement-history-container {
+        margin-bottom: var(--spacing-lg);
+    }
+    
+    .movement-history-table {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--border-radius-md);
+    }
+    
+    .movement-history-table .sticky-top {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background-color: var(--bs-table-bg);
+    }
 </style>
 {% endblock %}
 
@@ -414,67 +433,69 @@
     <p class="text-muted mb-4">Track the device's movement through RFID checkpoints</p>
     
     {% if movements %}
-    <div class="table-responsive">
-        <table class="table table-hover">
-            <thead class="table-light">
-                <tr>
-                    <th scope="col">Time</th>
-                    <th scope="col">Location</th>
-                    <th scope="col">Reader</th>
-                    <th scope="col">Status Change</th>
-                    <th scope="col" class="text-center">Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for movement in movements %}
-                <tr>
-                    <td>
-                        <span class="d-block fw-medium">{{ movement.timestamp.strftime('%m/%d/%Y') }}</span>
-                        <small class="text-muted">{{ movement.timestamp.strftime('%I:%M %p') }}</small>
-                    </td>
-                    <td>
-                        <span class="d-block">{{ movement.location_name or 'Unknown Location' }}</span>
-                    </td>
-                    <td>
-                        {% if movement.reader_name == 'System Alert' %}
-                            <span class="text-muted">{{ movement.reader_name }}</span>
-                            <small class="text-muted d-block">Automatic Status Update</small>
-                        {% else %}
-                            {{ movement.reader_name or movement.reader_code }}
-                            {% if movement.antenna_number %}
-                                <small class="text-muted d-block">Antenna {{ movement.antenna_number }}</small>
+    <div class="movement-history-container">
+        <div class="table-responsive movement-history-table">
+            <table class="table table-hover">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th scope="col">Time</th>
+                        <th scope="col">Location</th>
+                        <th scope="col">Reader</th>
+                        <th scope="col">Status Change</th>
+                        <th scope="col" class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for movement in movements %}
+                    <tr>
+                        <td>
+                            <span class="d-block fw-medium">{{ movement.timestamp.strftime('%m/%d/%Y') }}</span>
+                            <small class="text-muted">{{ movement.timestamp.strftime('%I:%M %p') }}</small>
+                        </td>
+                        <td>
+                            <span class="d-block">{{ movement.location_name or 'Unknown Location' }}</span>
+                        </td>
+                        <td>
+                            {% if movement.reader_name == 'System Alert' %}
+                                <span class="text-muted">{{ movement.reader_name }}</span>
+                                <small class="text-muted d-block">Automatic Status Update</small>
+                            {% else %}
+                                {{ movement.reader_name or movement.reader_code }}
+                                {% if movement.antenna_number %}
+                                    <small class="text-muted d-block">Antenna {{ movement.antenna_number }}</small>
+                                {% endif %}
                             {% endif %}
-                        {% endif %}
-                    </td>
-                    <td>
-                        {% if movement.status_transition %}
-                            <span class="badge {% if 'Missing' in movement.status_transition and 'Missing → In-Facility' not in movement.status_transition %}bg-danger
-                                     {% elif 'In-Facility' in movement.status_transition and '→' not in movement.status_transition %}bg-success
-                                     {% elif 'In-Facility → Temporarily Out' in movement.status_transition %}bg-warning
-                                     {% elif 'Temporarily Out → In-Facility' in movement.status_transition %}bg-success
-                                     {% elif 'Temporarily Out → Missing' in movement.status_transition %}bg-danger
-                                     {% elif 'Missing → In-Facility' in movement.status_transition %}bg-success
-                                     {% else %}bg-warning{% endif %}">
-                                <i class="fas {% if 'Missing' in movement.status_transition and '→ Missing' in movement.status_transition %}fa-exclamation-triangle
-                                    {% elif 'In-Facility → ' in movement.status_transition %}fa-sign-out-alt
-                                    {% elif '→ In-Facility' in movement.status_transition %}fa-sign-in-alt
-                                    {% else %}fa-exchange-alt{% endif %} me-1"></i> 
-                                {{ movement.status_transition }}
-                            </span>
-                        {% else %}
-                            <span class="badge bg-secondary">Unknown → {{ movement.current_status }}</span>
-                        {% endif %}
-                    </td>
-                    <td class="text-center">
-                        <a href="{{ url_for('rfid.alerts') }}?device_id={{ movement.device_id }}" 
-                           class="btn btn-sm btn-outline-secondary">
-                            <i class="fas fa-history"></i>
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+                        </td>
+                        <td>
+                            {% if movement.status_transition %}
+                                <span class="badge {% if 'Missing' in movement.status_transition and 'Missing → In-Facility' not in movement.status_transition %}bg-danger
+                                         {% elif 'In-Facility' in movement.status_transition and '→' not in movement.status_transition %}bg-success
+                                         {% elif 'In-Facility → Temporarily Out' in movement.status_transition %}bg-warning
+                                         {% elif 'Temporarily Out → In-Facility' in movement.status_transition %}bg-success
+                                         {% elif 'Temporarily Out → Missing' in movement.status_transition %}bg-danger
+                                         {% elif 'Missing → In-Facility' in movement.status_transition %}bg-success
+                                         {% else %}bg-warning{% endif %}">
+                                    <i class="fas {% if 'Missing' in movement.status_transition and '→ Missing' in movement.status_transition %}fa-exclamation-triangle
+                                        {% elif 'In-Facility → ' in movement.status_transition %}fa-sign-out-alt
+                                        {% elif '→ In-Facility' in movement.status_transition %}fa-sign-in-alt
+                                        {% else %}fa-exchange-alt{% endif %} me-1"></i> 
+                                    {{ movement.status_transition }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary">Unknown → {{ movement.current_status }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('rfid.alerts') }}?device_id={{ movement.device_id }}" 
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-history"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
     </div>
     
     <div class="card mt-4">
