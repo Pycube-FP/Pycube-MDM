@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from services.db_service import DBService
 from models.device import Device
-from routes.auth import login_required, role_required
+from routes.auth import login_required, role_required, api_auth_required
 from datetime import datetime
 import uuid
 import re
@@ -691,4 +691,58 @@ def api_assign_device_by_barcode():
         
     except Exception as e:
         print(f"Error in api_assign_device_by_barcode: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/count')
+@api_auth_required
+def api_device_count():
+    """API endpoint to get total device count"""
+    try:
+        db_service = DBService()
+        count = db_service.get_device_count()
+        
+        return jsonify({
+            'count': count,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/count/missing')
+@api_auth_required
+def api_missing_device_count():
+    """API endpoint to get count of missing devices"""
+    try:
+        db_service = DBService()
+        count = db_service.get_device_count(status='Missing')
+        
+        return jsonify({
+            'count': count,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/count/by-status')
+@api_auth_required
+def api_device_count_by_status():
+    """API endpoint to get device counts grouped by status"""
+    try:
+        db_service = DBService()
+        
+        # Get counts for each status
+        in_facility_count = db_service.get_device_count(status='In-Facility')
+        missing_count = db_service.get_device_count(status='Missing')
+        temp_out_count = db_service.get_device_count(status='Temporarily Out')
+        
+        return jsonify({
+            'counts': {
+                'In-Facility': in_facility_count,
+                'Missing': missing_count,
+                'Temporarily Out': temp_out_count
+            },
+            'total': in_facility_count + missing_count + temp_out_count,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 

@@ -3,8 +3,20 @@ from functools import wraps
 from services.db_service import DBService
 from models.user import User
 import uuid
+import jwt
+import datetime
+import os
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
+
+# Secret key for JWT token generation
+JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'development-secret-key')
+JWT_ALGORITHM = 'HS256'
+JWT_EXPIRATION_HOURS = 24  # Token valid for 24 hours
 
 # Admin credentials - In a real application, these would be stored securely
 ADMIN_USERNAME = "admin"
@@ -45,6 +57,49 @@ def role_required(roles):
             return f(*args, **kwargs)
         return decorated_function
     return decorator
+
+def generate_jwt_token(user_id, username, role):
+    """Generate a JWT token for API authentication"""
+    payload = {
+        'user_id': user_id,
+        'username': username,
+        'role': role,
+        'exp': datetime.datetime.utcnow() + datetime.timedelta(hours=JWT_EXPIRATION_HOURS),
+        'iat': datetime.datetime.utcnow()
+    }
+    token = jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+    return token
+
+def validate_jwt_token(token):
+    """Validate a JWT token"""
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        return None  # Token has expired
+    except jwt.InvalidTokenError:
+        return None  # Invalid token
+        
+def api_auth_required(f):
+    """Decorator to require JWT authentication for API routes"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Check for token in header
+        auth_header = request.headers.get('Authorization')
+        if not auth_header or not auth_header.startswith('Bearer '):
+            return jsonify({'error': 'Authorization token is missing or invalid'}), 401
+        
+        token = auth_header.split(' ')[1]
+        payload = validate_jwt_token(token)
+        
+        if not payload:
+            return jsonify({'error': 'Invalid or expired token'}), 401
+        
+        # Set user info in request for use in the route
+        request.user = payload
+        
+        return f(*args, **kwargs)
+    return decorated_function
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -117,6 +172,50 @@ def api_login():
                     'username': user.username,
                     'firstName': user_data.get('first_name'),
                     'lastName': user_data.get('last_name'),
+                    'role': user.role
+                }
+            })
+    
+    return jsonify({
+        'success': False,
+        'message': 'Invalid username or password'
+    }), 401
+
+@auth_bp.route('/api/token', methods=['POST'])
+def generate_api_token():
+    """Generate a JWT token for API access"""
+    if not request.is_json:
+        return jsonify({
+            'success': False,
+            'message': 'Content-Type must be application/json'
+        }), 400
+    
+    data = request.get_json()
+    username = data.get('username')
+    password = data.get('password')
+    
+    if not username or not password:
+        return jsonify({
+            'success': False,
+            'message': 'Username and password are required'
+        }), 400
+    
+    db_service = DBService()
+    user_data = db_service.get_user_by_username(username)
+    
+    if user_data:
+        user = User.from_dict(user_data)
+        if user.check_password(password):
+            # Generate JWT token
+            token = generate_jwt_token(user.id, user.username, user.role)
+            
+            return jsonify({
+                'success': True,
+                'token': token,
+                'expires_in': JWT_EXPIRATION_HOURS * 3600,  # in seconds
+                'user': {
+                    'id': user.id,
+                    'username': user.username,
                     'role': user.role
                 }
             })
