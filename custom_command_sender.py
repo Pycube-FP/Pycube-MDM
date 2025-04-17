@@ -48,20 +48,49 @@ def send_custom_command(client, command_json):
         else:
             command_data = command_json
             
-        # Ensure it has the expected structure
-        if 'command' not in command_data:
-            # Wrap in command structure if needed
-            full_command = {"command": command_data}
+        # Check command structure and format appropriately
+        if 'command' in command_data:
+            # If 'command' is a string (like "get_mode"), it needs special handling
+            if isinstance(command_data['command'], str):
+                # Create a proper command structure using the string as the type
+                command_type = command_data['command']
+                command_id = command_data.get('command_id', str(uuid.uuid4()))
+                
+                # Build a structured command
+                full_command = {
+                    "command": {
+                        "id": command_id,
+                        "type": command_type,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                }
+                
+                # Add any payload if present
+                if 'payload' in command_data:
+                    full_command['command']['parameters'] = command_data['payload']
+            else:
+                # Command is already a nested object
+                full_command = command_data
+                
+                # Ensure the command has an ID
+                if 'id' not in full_command['command']:
+                    full_command['command']['id'] = str(uuid.uuid4())
+                
+                # Add timestamp if not present
+                if 'timestamp' not in full_command['command']:
+                    full_command['command']['timestamp'] = datetime.now().isoformat()
         else:
-            full_command = command_data
+            # Wrap in command structure if needed
+            full_command = {
+                "command": {
+                    "id": str(uuid.uuid4()),
+                    "timestamp": datetime.now().isoformat()
+                }
+            }
             
-        # Ensure the command has an ID
-        if 'id' not in full_command['command']:
-            full_command['command']['id'] = str(uuid.uuid4())
-            
-        # Add timestamp if not present
-        if 'timestamp' not in full_command['command']:
-            full_command['command']['timestamp'] = datetime.now().isoformat()
+            # Copy all fields from input to command
+            for key, value in command_data.items():
+                full_command['command'][key] = value
             
         # Send the command
         command_str = json.dumps(full_command)
@@ -74,7 +103,7 @@ def send_custom_command(client, command_json):
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON format: {e}")
     except Exception as e:
-        logger.error(f"Error sending command: {e}")
+        logger.error(f"Error sending command: {e}", exc_info=True)
 
 def interactive_mode(client):
     """Interactive mode for sending commands"""
