@@ -48,56 +48,13 @@ def send_custom_command(client, command_json):
         else:
             command_data = command_json
             
-        # Check command structure and format appropriately
-        if 'command' in command_data:
-            # If 'command' is a string (like "get_mode"), it needs special handling
-            if isinstance(command_data['command'], str):
-                # Create a proper command structure using the string as the type
-                command_type = command_data['command']
-                command_id = command_data.get('command_id', str(uuid.uuid4()))
-                
-                # Build a structured command
-                full_command = {
-                    "command": {
-                        "id": command_id,
-                        "type": command_type,
-                        "timestamp": datetime.now().isoformat()
-                    }
-                }
-                
-                # Add any payload if present
-                if 'payload' in command_data:
-                    full_command['command']['parameters'] = command_data['payload']
-            else:
-                # Command is already a nested object
-                full_command = command_data
-                
-                # Ensure the command has an ID
-                if 'id' not in full_command['command']:
-                    full_command['command']['id'] = str(uuid.uuid4())
-                
-                # Add timestamp if not present
-                if 'timestamp' not in full_command['command']:
-                    full_command['command']['timestamp'] = datetime.now().isoformat()
-        else:
-            # Wrap in command structure if needed
-            full_command = {
-                "command": {
-                    "id": str(uuid.uuid4()),
-                    "timestamp": datetime.now().isoformat()
-                }
-            }
-            
-            # Copy all fields from input to command
-            for key, value in command_data.items():
-                full_command['command'][key] = value
-            
-        # Send the command
-        command_str = json.dumps(full_command)
+        # Send the command exactly as provided - no modification
+        command_str = json.dumps(command_data)
         logger.info(f"Sending command: {command_str}")
         result = client.publish(MQTT_COMMAND_TOPIC, command_str, qos=1)
         
-        command_id = full_command['command'].get('id')
+        # Extract command ID for logging
+        command_id = command_data.get('command_id', 'unknown')
         logger.info(f"Published custom command (ID: {command_id}), result: {result}")
         
     except json.JSONDecodeError as e:
