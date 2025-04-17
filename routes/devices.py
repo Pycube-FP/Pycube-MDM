@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, jsonify, redirect, url_for, flash
 from services.db_service import DBService
 from models.device import Device
-from routes.auth import login_required, role_required
+from routes.auth import login_required, role_required, api_auth_required
 from datetime import datetime
 import uuid
 import re
@@ -691,4 +691,219 @@ def api_assign_device_by_barcode():
         
     except Exception as e:
         print(f"Error in api_assign_device_by_barcode: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/count')
+@api_auth_required
+def api_device_count():
+    """API endpoint to get total device count"""
+    try:
+        db_service = DBService()
+        count = db_service.get_device_count()
+        
+        return jsonify({
+            'count': count,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/count/missing')
+@api_auth_required
+def api_missing_device_count():
+    """API endpoint to get count of missing devices"""
+    try:
+        db_service = DBService()
+        count = db_service.get_device_count(status='Missing')
+        
+        return jsonify({
+            'count': count,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/count/by-status')
+@api_auth_required
+def api_device_count_by_status():
+    """API endpoint to get device counts grouped by status"""
+    try:
+        db_service = DBService()
+        
+        # Get counts for each status
+        in_facility_count = db_service.get_device_count(status='In-Facility')
+        missing_count = db_service.get_device_count(status='Missing')
+        temp_out_count = db_service.get_device_count(status='Temporarily Out')
+        
+        return jsonify({
+            'counts': {
+                'In-Facility': in_facility_count,
+                'Missing': missing_count,
+                'Temporarily Out': temp_out_count
+            },
+            'total': in_facility_count + missing_count + temp_out_count,
+            'timestamp': datetime.now().isoformat()
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/search')
+@api_auth_required
+def api_search_devices():
+    """API endpoint to search for devices by various criteria"""
+    try:
+        # Get search parameters from query string
+        search_term = request.args.get('query', '')
+        status = request.args.get('status', None)
+        limit = int(request.args.get('limit', 10))
+        
+        if not search_term and not status:
+            return jsonify({'error': 'Please provide search query or status filter'}), 400
+            
+        db_service = DBService()
+        
+        # Get devices with search parameters
+        devices = db_service.get_all_devices(
+            limit=limit, 
+            offset=0,
+            status=status,
+            search_query=search_term
+        )
+        
+        # Format device data for API response
+        device_list = []
+        for device in devices:
+            device_list.append({
+                'id': device['id'],
+                'serialNumber': device['serial_number'],
+                'model': device['model'],
+                'manufacturer': device['manufacturer'],
+                'rfidTag': device['rfid_tag'],
+                'status': device['status'],
+                'assignedTo': device['assigned_to'],
+                'location': device.get('location_name', 'Unknown'),
+                'hospital': device.get('hospital_name', 'Unknown')
+            })
+        
+        return jsonify({
+            'success': True,
+            'devices': device_list,
+            'count': len(device_list),
+            'search_term': search_term,
+            'status_filter': status
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/details/<device_id>')
+@api_auth_required
+def api_device_details(device_id):
+    """API endpoint to get detailed information about a specific device"""
+    try:
+        db_service = DBService()
+        device_data = db_service.get_device(device_id)
+        
+        if not device_data:
+            return jsonify({'error': 'Device not found'}), 404
+        
+        # Get movement history
+        movements = db_service.get_device_movement_history(device_id)
+        movement_history = []
+        
+        for movement in movements:
+            movement_history.append({
+                'timestamp': movement['timestamp'].isoformat() if movement.get('timestamp') else None,
+                'readerId': movement.get('reader_id'),
+                'readerName': movement.get('reader_name'),
+                'locationName': movement.get('location_name'),
+                'status': movement.get('status')
+            })
+        
+        # Get assignment history
+        assignments = db_service.get_device_assignments(device_id)
+        assignment_history = []
+        
+        for assignment in assignments:
+            assignment_history.append({
+                'id': assignment.get('id'),
+                'nurseId': assignment.get('nurse_id'),
+                'nurseName': assignment.get('nurse_name', 'Unknown'),
+                'assignedAt': assignment['assigned_at'].isoformat() if assignment.get('assigned_at') else None,
+                'returnedAt': assignment['returned_at'].isoformat() if assignment.get('returned_at') else None,
+                'status': assignment.get('status')
+            })
+        
+        # Calculate compliance percentage for iPhones
+        compliance_percent = None
+        if device_data['manufacturer'].lower() == 'apple' and 'iphone' in device_data['model'].lower():
+            compliance_percent = calculate_iphone_compliance(device_data['model'])
+        
+        # Prepare the detailed device info
+        device_details = {
+            'id': device_data['id'],
+            'serialNumber': device_data['serial_number'],
+            'model': device_data['model'],
+            'manufacturer': device_data['manufacturer'],
+            'rfidTag': device_data['rfid_tag'],
+            'barcode': device_data['barcode'],
+            'status': device_data['status'],
+            'hospitalId': device_data['hospital_id'],
+            'hospitalName': device_data.get('hospital_name', 'Unknown'),
+            'locationId': device_data['location_id'],
+            'locationName': device_data.get('location_name', 'Unknown'),
+            'assignedTo': device_data['assigned_to'],
+            'purchaseDate': device_data['purchase_date'].isoformat() if device_data['purchase_date'] else None,
+            'lastMaintenanceDate': device_data['last_maintenance_date'].isoformat() if device_data['last_maintenance_date'] else None,
+            'eolDate': device_data['eol_date'].isoformat() if device_data.get('eol_date') else None,
+            'eolStatus': device_data.get('eol_status'),
+            'compliancePercent': compliance_percent,
+            'movements': movement_history,
+            'assignments': assignment_history
+        }
+        
+        return jsonify({
+            'success': True,
+            'device': device_details
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@devices_bp.route('/api/alerts/recent')
+@api_auth_required
+def api_recent_alerts():
+    """API endpoint to get recent alerts for devices"""
+    try:
+        limit = int(request.args.get('limit', 5))
+        device_id = request.args.get('device_id', None)
+        
+        db_service = DBService()
+        
+        # Get recent alerts
+        if device_id:
+            # Get movements for a specific device
+            movements = db_service.get_device_movement_history(device_id, limit=limit)
+        else:
+            # Get alerts for all devices
+            movements = db_service.get_rfid_alerts(limit=limit, sort_by='timestamp', sort_dir='desc')
+        
+        alerts = []
+        for movement in movements:
+            alerts.append({
+                'id': movement.get('id'),
+                'deviceId': movement.get('device_id'),
+                'serialNumber': movement.get('serial_number', 'Unknown'),
+                'model': movement.get('model', 'Unknown'),
+                'status': movement.get('status'),
+                'timestamp': movement['timestamp'].isoformat() if movement.get('timestamp') else None,
+                'readerId': movement.get('reader_id'),
+                'readerName': movement.get('reader_name', 'Unknown'),
+                'locationName': movement.get('location_name', 'Unknown')
+            })
+        
+        return jsonify({
+            'success': True,
+            'alerts': alerts,
+            'count': len(alerts)
+        })
+    except Exception as e:
         return jsonify({'error': str(e)}), 500 

@@ -127,11 +127,6 @@ def main():
     
     args = parser.parse_args()
     
-    # Update topic if provided
-    global MQTT_COMMAND_TOPIC
-    if args.topic:
-        MQTT_COMMAND_TOPIC = args.topic
-    
     # Create MQTT client
     client = mqtt.Client(
         protocol=mqtt.MQTTv5, 
@@ -147,6 +142,10 @@ def main():
     if args.json:
         client.user_data_set({'command': args.json})
         
+    # Update topic if provided
+    global MQTT_COMMAND_TOPIC
+    MQTT_COMMAND_TOPIC = args.topic
+    
     # Configure TLS
     client.tls_set(
         ca_certs=ROOT_CA,
