@@ -121,11 +121,18 @@ def interactive_mode(client):
     print("Exiting interactive mode...")
 
 def main():
+    # Define global variable access first
+    global MQTT_COMMAND_TOPIC
+    
     parser = argparse.ArgumentParser(description='Send custom MQTT commands')
     parser.add_argument('--json', type=str, help='JSON command to send (if not provided, interactive mode is used)')
     parser.add_argument('--topic', type=str, default=MQTT_COMMAND_TOPIC, help=f'MQTT topic to publish to (default: {MQTT_COMMAND_TOPIC})')
     
     args = parser.parse_args()
+    
+    # Update topic if provided
+    if args.topic:
+        MQTT_COMMAND_TOPIC = args.topic
     
     # Create MQTT client
     client = mqtt.Client(
@@ -141,10 +148,6 @@ def main():
     # Set user data if command provided
     if args.json:
         client.user_data_set({'command': args.json})
-        
-    # Update topic if provided
-    global MQTT_COMMAND_TOPIC
-    MQTT_COMMAND_TOPIC = args.topic
     
     # Configure TLS
     client.tls_set(
