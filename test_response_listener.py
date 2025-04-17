@@ -46,26 +46,53 @@ def on_message(client, userdata, msg):
         try:
             data = json.loads(payload)
             
-            # Check if this is a command response
+            # Handle different response formats
             if 'response' in data:
-                response = data['response']
-                command_id = response.get('command_id')
-                
-                if command_id:
-                    received_responses[command_id] = response
+                # Check if 'response' is a string (success/failure) or an object
+                if isinstance(data['response'], str):
+                    # Handle simple success/failure response
+                    response_status = data['response']
+                    command_id = data.get('command_id', 'unknown')
                     
-                    # Print detailed information about the response
-                    logger.info(f"Received response for command ID: {command_id}")
-                    logger.info(f"Response status: {response.get('status', 'UNKNOWN')}")
-                    logger.info(f"Response type: {response.get('type', 'UNKNOWN')}")
+                    logger.info(f"Response status: {response_status}")
+                    logger.info(f"Command ID: {command_id}")
                     
-                    if 'data' in response:
-                        logger.info(f"Response data: {json.dumps(response['data'], indent=2)}")
+                    # Check for payload with error messages
+                    if 'payload' in data and isinstance(data['payload'], dict):
+                        payload_data = data['payload']
+                        if 'code' in payload_data:
+                            logger.info(f"Response code: {payload_data['code']}")
+                        if 'message' in payload_data:
+                            logger.info(f"Response message: {payload_data['message']}")
+                        
+                        # Log the full payload for debugging
+                        logger.info(f"Full payload: {json.dumps(payload_data, indent=2)}")
                     
-                    if 'error' in response:
-                        logger.info(f"Response error: {response['error']}")
+                    # Store in received_responses
+                    received_responses[command_id] = {
+                        'status': response_status,
+                        'payload': data.get('payload', {})
+                    }
                 else:
-                    logger.warning("Received response with no command ID")
+                    # Original format where 'response' is an object
+                    response = data['response']
+                    command_id = response.get('command_id')
+                    
+                    if command_id:
+                        received_responses[command_id] = response
+                        
+                        # Print detailed information about the response
+                        logger.info(f"Received response for command ID: {command_id}")
+                        logger.info(f"Response status: {response.get('status', 'UNKNOWN')}")
+                        logger.info(f"Response type: {response.get('type', 'UNKNOWN')}")
+                        
+                        if 'data' in response:
+                            logger.info(f"Response data: {json.dumps(response['data'], indent=2)}")
+                        
+                        if 'error' in response:
+                            logger.info(f"Response error: {response['error']}")
+                    else:
+                        logger.warning("Received response with no command ID")
             else:
                 logger.info(f"Received non-response message: {json.dumps(data, indent=2)}")
         except json.JSONDecodeError as e:
