@@ -33,9 +33,11 @@ def on_connect(client, userdata, flags, reason_code, properties):
     else:
         logger.error(f"Failed to connect, reason code: {reason_code}")
 
-def on_publish(client, userdata, mid):
+def on_publish(client, userdata, mid, reason_code=None, properties=None):
     """Callback when message is published"""
     logger.info(f"Command with message ID {mid} has been published")
+    if reason_code is not None:
+        logger.info(f"Publish result: {reason_code}")
 
 def send_custom_command(client, command_json):
     """Send a custom command from the provided JSON"""
