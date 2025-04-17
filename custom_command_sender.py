@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # MQTT configuration
 MQTT_ENDPOINT = "a2zl2pb12jbe1o-ats.iot.us-east-1.amazonaws.com"
-MQTT_COMMAND_TOPIC = "6B6035_commands"  # Channel for sending commands
+MQTT_COMMAND_TOPIC = "6CD45A_commands"  # Channel for sending commands
 MQTT_PORT = 8883
 
 # Certificate paths
